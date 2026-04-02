@@ -1,0 +1,37 @@
+name: Terraform validate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    name: fmt + validate
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        module:
+          - modules/lexv2models
+          - examples/lex-only
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - name: terraform fmt check
+        run: terraform fmt -check -recursive
+        working-directory: ${{ matrix.module }}
+
+      - name: terraform init
+        run: terraform init -backend=false
+        working-directory: ${{ matrix.module }}
+
+      - name: terraform validate
+        run: terraform validate
+        working-directory: ${{ matrix.module }}
