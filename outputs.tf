@@ -91,3 +91,22 @@ output "slot_types" {
 #   description = "Lambda permissions created for bot fulfillment"
 #   value       = module.lexv2models.lambda_permissions
 # }
+
+# ============================================================================
+# Bot Version Outputs (v1.1.0)
+# ============================================================================
+
+output "bot_version" {
+  description = "The version number of the bot (if created). Returns null if no version was created."
+  value       = module.lexv2models.bot_version
+}
+
+output "bot_version_id" {
+  description = "The full version identifier including bot ID (if created)"
+  value       = module.lexv2models.bot_version_id
+}
+
+output "bot_version_arn" {
+  description = "The ARN of the bot version (if created)"
+  value       = module.lexv2models.bot_version_arn
+}

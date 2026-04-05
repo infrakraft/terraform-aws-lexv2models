@@ -22,6 +22,11 @@ module "lexv2models" {
   polly_arn                = var.polly_arn
   cloudwatch_log_group_arn = var.cloudwatch_log_group_arn
 
+  # Bot Version Configuration (v1.1.0)
+  create_bot_version               = var.create_bot_version
+  bot_version_description          = var.bot_version_description
+  bot_version_locale_specification = var.bot_version_locale_specification
+
   # Tags
   tags = var.tags
 }

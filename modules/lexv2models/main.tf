@@ -357,209 +357,6 @@ resource "aws_lexv2models_slot" "slots" {
   ]
 }
 
-# ==============================================================================
-# Slot priorities
-#
-# KNOWN PROVIDER BUG: slot_priority is a block on aws_lexv2models_intent, but
-# it requires slot IDs that don't exist until aws_lexv2models_slot is applied.
-# This creates an inescapable cycle in the Terraform graph.
-# See: https://github.com/hashicorp/terraform-provider-aws/issues/36863
-#      https://github.com/hashicorp/terraform-provider-aws/issues/39948
-#
-# Workaround: after slots are created, we call the Lex V2 UpdateIntent API
-# via AWS CLI using a null_resource local-exec. This runs outside Terraform's
-# dependency graph, so no cycle exists. The null_resource re-triggers whenever
-# slot IDs change (tracked via triggers).
-#
-# The bot locale must be built after priorities are set, so
-# aws_lexv2models_bot_locale depends on this resource implicitly via the
-# build_bot_locale null_resource below.
-# ==============================================================================
-
-# resource "null_resource" "slot_priorities" {
-#   for_each = {
-#     for intent in local.intents :
-#     "${intent.locale}-${intent.name}" => intent
-#     if length(intent.slots) > 0
-#   }
-
-#   triggers = {
-#     # Re-run whenever any slot ID in this intent changes
-#     slot_ids = join(",", [
-#       for slot_name in keys(each.value.slots) :
-#       aws_lexv2models_slot.slots["${each.value.locale}-${each.value.name}-${slot_name}"].slot_id
-#     ])
-#     intent_id = aws_lexv2models_intent.intents[each.key].intent_id
-#   }
-
-#   provisioner "local-exec" {
-#     interpreter = ["bash", "-c"]
-#     command     = <<-BASH
-#       set -euo pipefail
-
-#       BOT_ID="${aws_lexv2models_bot.this.id}"
-#       INTENT_ID="${aws_lexv2models_intent.intents[each.key].intent_id}"
-#       LOCALE="${each.value.locale}"
-
-#       # Build the slot priority JSON array — first slot = priority 1, etc.
-#       PRIORITIES='${jsonencode([
-#         for idx, slot_name in keys(each.value.slots) : {
-#           priority = idx + 1
-#           slotId   = aws_lexv2models_slot.slots["${each.value.locale}-${each.value.name}-${slot_name}"].slot_id
-#         }
-#       ])}'
-
-#       # Fetch the current intent definition (note: describe-intent, not get-intent)
-#       CURRENT=$(aws lexv2-models describe-intent \
-#         --bot-id "$BOT_ID" \
-#         --bot-version DRAFT \
-#         --locale-id "$LOCALE" \
-#         --intent-id "$INTENT_ID" \
-#         --output json)
-
-#       # Strip all read-only / identity fields that UpdateIntent rejects,
-#       # then inject the slot priorities array.
-#       UPDATED=$(echo "$CURRENT" | jq \
-#         --argjson priorities "$PRIORITIES" \
-#         'del(
-#            .creationDateTime,
-#            .lastUpdatedDateTime,
-#            .botId,
-#            .botVersion,
-#            .localeId,
-#            .intentId
-#          )
-#          | .slotPriorities = $priorities')
-
-#       aws lexv2-models update-intent \
-#         --bot-id "$BOT_ID" \
-#         --bot-version DRAFT \
-#         --locale-id "$LOCALE" \
-#         --intent-id "$INTENT_ID" \
-#         --cli-input-json "$UPDATED"
-#     BASH
-#   }
-
-#   depends_on = [aws_lexv2models_slot.slots]
-# }
-
-# resource "null_resource" "update_intent_slots" {
-#     triggers = {
-#         always_run = timestamp()
-#     }
-#     for_each = { for item in local.intent_slot_pairs : "${item.bot_name}_${item.intent_name}_${item.slot_name}" => item }
-
-#     provisioner "local-exec" {
-#         command = <<EOT
-#         aws lexv2-models update-intent \
-#         --bot-id ${aws_lexv2models_bot.this[each.value.bot_name].id} \
-#         --bot-version ${aws_lexv2models_bot_locale.this[each.value.bot_name].bot_version} \
-#         --locale-id ${aws_lexv2models_bot_locale.this[each.value.bot_name].locale_id} \
-#         --intent-id ${split(":", aws_lexv2models_intent.this["${each.value.bot_name}_${each.value.intent_name}"].id)[0]} \
-#         --intent-name ${each.value.intent_name} \
-#         --slot-priorities "[{\"priority\": ${each.value.priority}, \"slotId\": \"${split(",", aws_lexv2models_slot.this["${each.value.intent_name}_${each.value.slot_name}"].id)[4]}\"}]"
-#         EOT
-#     }
-#     depends_on = [
-#     aws_lexv2models_intent.this,
-#     aws_lexv2models_slot.this
-#   ]
-# }
-
-# resource "null_resource" "update_intent_slot_priorities" {
-#   for_each = {
-#     for intent in local.intents :
-#     "${intent.locale}-${intent.name}" => intent
-#     if length(intent.slots) > 0
-#   }
-
-#   triggers = {
-#     intent_id = aws_lexv2models_intent.intents[each.key].intent_id
-
-#     slot_ids = join(",", [
-#       for s in local.slot_priorities_by_intent[each.key] : s.slot_id
-#     ])
-#   }
-
-#   provisioner "local-exec" {
-#     interpreter = ["bash", "-c"]
-
-#     command = <<-EOT
-#       set -euo pipefail
-
-#       BOT_ID="${aws_lexv2models_bot.this.id}"
-#       INTENT_ID="${aws_lexv2models_intent.intents[each.key].intent_id}"
-#       LOCALE="${each.value.locale}"
-
-#       echo "Waiting for intent to become available..."
-
-#       for i in {1..30}; do
-#         if aws lexv2-models describe-intent \
-#           --bot-id "$BOT_ID" \
-#           --bot-version DRAFT \
-#           --locale-id "$LOCALE" \
-#           --intent-id "$INTENT_ID" > /dev/null 2>&1; then
-#           echo "Intent ready"
-#           break
-#         fi
-#         sleep 5
-#       done
-
-#       PRIORITIES='${jsonencode(local.slot_priorities_by_intent[each.key])}'
-
-#       CURRENT=$(aws lexv2-models describe-intent \
-#         --bot-id "$BOT_ID" \
-#         --bot-version DRAFT \
-#         --locale-id "$LOCALE" \
-#         --intent-id "$INTENT_ID" \
-#         --output json)
-
-#       UPDATED=$(echo "$CURRENT" | jq \
-#         --argjson priorities "$PRIORITIES" \
-#         'del(
-#            .creationDateTime,
-#            .lastUpdatedDateTime,
-#            .botId,
-#            .botVersion,
-#            .localeId,
-#            .intentId
-#          )
-#          | .slotPriorities = $priorities')
-
-#       aws lexv2-models update-intent \
-#         --bot-id "$BOT_ID" \
-#         --bot-version DRAFT \
-#         --locale-id "$LOCALE" \
-#         --intent-id "$INTENT_ID" \
-#         --cli-input-json "$UPDATED"
-
-#       echo "Updated slot priorities for intent: $INTENT_ID"
-#     EOT
-#   }
-
-#   depends_on = [
-#     aws_lexv2models_slot.slots
-#   ]
-# }
-
-# resource "null_resource" "build_bot_locale" {
-#   for_each = local.locales
-
-#   provisioner "local-exec" {
-#     command = <<EOT
-# aws lexv2-models build-bot-locale \
-#   --bot-id ${aws_lexv2models_bot.this.id} \
-#   --bot-version DRAFT \
-#   --locale-id ${each.key}
-# EOT
-#   }
-
-#   depends_on = [
-#     null_resource.update_intent_slot_priorities
-#   ]
-# }
-
-
 resource "null_resource" "slot_priorities" {
   for_each = {
     for intent in local.intents :
@@ -632,135 +429,38 @@ resource "null_resource" "slot_priorities" {
 depends_on = [aws_lexv2models_slot.slots]
 }
 
-# resource "null_resource" "build_bot_locale_before_priorities" {
-#   for_each = local.locales
 
-#   provisioner "local-exec" {
-#     interpreter = ["bash", "-c"]
+# ==============================================================================
+# Bot Version (v1.1.0)
+# ==============================================================================
+# Creates an immutable numbered version from the DRAFT bot.
+# Versions are required for creating bot aliases and production deployments.
+# ==============================================================================
 
-#     command = <<-EOT
-#       set -euo pipefail
+resource "aws_lexv2models_bot_version" "this" {
+  count = var.create_bot_version ? 1 : 0
 
-#       BOT_ID="${aws_lexv2models_bot.this.id}"
-#       LOCALE="${each.key}"
+  bot_id      = aws_lexv2models_bot.this.id
+  description = var.bot_version_description
 
-#       echo "Starting build for locale: $LOCALE"
+  # locale_specification is a MAP attribute, not a block!
+  # Each key is a locale_id, value is an object with source_bot_version
+  locale_specification = {
+    for locale_id in keys(local.locales) :
+    locale_id => {
+      source_bot_version = lookup(
+        var.bot_version_locale_specification,
+        locale_id,
+        "DRAFT"
+      )
+    }
+  }
 
-#       aws lexv2-models build-bot-locale \
-#         --bot-id "$BOT_ID" \
-#         --bot-version DRAFT \
-#         --locale-id "$LOCALE"
-
-#       echo "Waiting for build to complete..."
-
-#       for i in {1..60}; do
-#         STATUS=$(aws lexv2-models describe-bot-locale \
-#           --bot-id "$BOT_ID" \
-#           --bot-version DRAFT \
-#           --locale-id "$LOCALE" \
-#           --query 'botLocaleStatus' \
-#           --output text 2>/dev/null || echo "NOT_READY")
-
-#         echo "Status: $STATUS"
-
-#         if [ "$STATUS" = "Built" ]; then
-#           echo "Build completed for locale: $LOCALE"
-#           exit 0
-#         fi
-
-#         sleep 5
-#       done
-
-#       echo "ERROR: Build did not complete in time"
-#       exit 1
-#     EOT
-#   }
-
-#   depends_on = [
-#     aws_lexv2models_intent.intents,
-#     aws_lexv2models_slot.slots
-#   ]
-# }
-
-# resource "null_resource" "update_intent_slot_priorities" {
-#   for_each = {
-#     for intent in local.intents :
-#     "${intent.locale}-${intent.name}" => intent
-#     if length(intent.slots) > 0
-#   }
-
-#   triggers = {
-#     intent_id = aws_lexv2models_intent.intents[each.key].intent_id
-
-#     slot_ids = join(",", [
-#       for s in local.slot_priorities_by_intent[each.key] : s.slotId
-#     ])
-#   }
-
-#   provisioner "local-exec" {
-#     interpreter = ["bash", "-c"]
-
-#     command = <<-EOT
-#       set -euo pipefail
-
-#       BOT_ID="${aws_lexv2models_bot.this.id}"
-#       INTENT_ID="${aws_lexv2models_intent.intents[each.key].intent_id}"
-#       LOCALE="${each.value.locale}"
-
-#       echo "Fetching intent definition..."
-
-#       CURRENT=$(aws lexv2-models describe-intent \
-#         --bot-id "$BOT_ID" \
-#         --bot-version DRAFT \
-#         --locale-id "$LOCALE" \
-#         --intent-id "$INTENT_ID" \
-#         --output json)
-
-#       PRIORITIES='${jsonencode(local.slot_priorities_by_intent[each.key])}'
-
-#       echo "Updating slot priorities..."
-
-#       UPDATED=$(echo "$CURRENT" | jq \
-#         --argjson priorities "$PRIORITIES" \
-#         'del(
-#            .creationDateTime,
-#            .lastUpdatedDateTime,
-#            .botId,
-#            .botVersion,
-#            .localeId,
-#            .intentId
-#          )
-#          | .slotPriorities = $priorities')
-
-#       aws lexv2-models update-intent \
-#         --bot-id "$BOT_ID" \
-#         --bot-version DRAFT \
-#         --locale-id "$LOCALE" \
-#         --intent-id "$INTENT_ID" \
-#         --cli-input-json "$UPDATED"
-
-#       echo "Updated slot priorities for intent: $INTENT_ID"
-#     EOT
-#   }
-
-#   depends_on = [
-#     null_resource.build_bot_locale_before_priorities
-#   ]
-# }
-
-# resource "null_resource" "build_bot_locale_final" {
-#   for_each = local.locales
-
-#   provisioner "local-exec" {
-#     command = <<EOT
-# aws lexv2-models build-bot-locale \
-#   --bot-id ${aws_lexv2models_bot.this.id} \
-#   --bot-version DRAFT \
-#   --locale-id ${each.key}
-# EOT
-#   }
-
-#   depends_on = [
-#     null_resource.update_intent_slot_priorities
-#   ]
-# }
+  # Ensure all locales, intents, slots are created before versioning
+  depends_on = [
+    aws_lexv2models_bot_locale.locales,
+    aws_lexv2models_intent.intents,
+    aws_lexv2models_slot.slots,
+    null_resource.slot_priorities,
+  ]
+}

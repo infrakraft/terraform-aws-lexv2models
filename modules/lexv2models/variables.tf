@@ -108,3 +108,39 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "create_bot_version" {
+  description = <<-EOT
+    Whether to create a numbered bot version from the DRAFT.
+    Set to true after testing your bot in DRAFT and you want to create
+    an immutable production snapshot.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "bot_version_description" {
+  description = <<-EOT
+    Description for the bot version.
+    Only used when create_bot_version is true.
+    
+    Example: "Production release v1.0 - Added booking and payment flows"
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "bot_version_locale_specification" {
+  description = <<-EOT
+    Optional map of locale_id to source bot version for that locale.
+    If not specified, all locales use DRAFT.
+    
+    Example:
+    {
+      "en_GB" = "1"
+      "es_US" = "1"
+    }
+  EOT
+  type        = map(string)
+  default     = {}
+}
