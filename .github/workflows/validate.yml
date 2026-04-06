@@ -13,16 +13,19 @@ jobs:
 
     strategy:
       matrix:
+        terraform_version: ["1.5.7", "1.9.8"]  # Test multiple versions
         module:
+          - "."
           - modules/lexv2models
           - examples/lex-only
+          - examples/lex-with-versioning
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "~> 1.5"
+          terraform_version: ${{ matrix.terraform_version }}
 
       - name: terraform fmt check
         run: terraform fmt -check -recursive
