@@ -64,3 +64,27 @@ output "slot_types" {
     }
   }
 }
+
+# ==============================================================================
+# Bot Version Outputs (v1.1.0)
+# ==============================================================================
+
+output "bot_version" {
+  description = "The version number of the bot (e.g., '1', '2', '3'). Returns null if no version was created."
+  value       = var.create_bot_version ? aws_lexv2models_bot_version.this[0].bot_version : null
+}
+
+output "bot_version_id" {
+  description = "The full bot version identifier. Returns null if no version was created."
+  value       = var.create_bot_version ? aws_lexv2models_bot_version.this[0].id : null
+}
+
+# output "bot_version_arn" {
+#   description = "The ARN of the bot version. Returns null if no version was created."
+#   value       = var.create_bot_version ? aws_lexv2models_bot_version.this[0].bot_version_arn : null
+# }
+
+output "bot_version_arn" {
+  description = "The ARN of the bot version. Returns null if no version was created."
+  value       = var.create_bot_version ? aws_lexv2models_bot_version.this[0].id : null
+}

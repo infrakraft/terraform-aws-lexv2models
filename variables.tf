@@ -155,3 +155,44 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# ==============================================================================
+# Bot Version Configuration (v1.1.0)
+# ==============================================================================
+
+variable "create_bot_version" {
+  description = <<-EOT
+    Whether to create a versioned snapshot of the bot.
+    Set to true when you want to create a stable, immutable version for production.
+    Once created, versions cannot be modified - only new versions can be created.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "bot_version_description" {
+  description = <<-EOT
+    Description for the bot version.
+    Useful for documenting what changed in this version.
+    Only used when create_bot_version is true.
+    
+    Example: "Production release v1.0 - Added checkout flow and payment processing"
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "bot_version_locale_specification" {
+  description = <<-EOT
+    Map of locale-specific source bot versions.
+    If not specified, uses the DRAFT version for all locales.
+    
+    Example:
+    {
+      "en_US" = "1"
+      "es_ES" = "2"
+    }
+  EOT
+  type        = map(string)
+  default     = {}
+}

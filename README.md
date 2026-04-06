@@ -1,10 +1,16 @@
 # AWS Lex V2 Terraform Module
 
-Terraform module for creating and managing AWS Lex V2 bots with advanced features including slot priorities, multi-locale support, Lambda integration, and conversation logging.
+[![Terraform](https://img.shields.io/badge/Terraform-%3E%3D1.0-623CE4?logo=terraform)](https://www.terraform.io/)
+[![AWS Provider](https://img.shields.io/badge/AWS%20Provider-%3E%3D4.0-FF9900?logo=amazon-aws)](https://registry.terraform.io/providers/hashicorp/aws/latest)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/infrakraft/terraform-aws-lexv2models)](https://github.com/infrakraft/terraform-aws-lexv2models/releases)
+
+Terraform module for creating and managing AWS Lex V2 bots with advanced features including slot priorities, bot versioning, multi-locale support, Lambda integration, and conversation logging.
 
 ## Features
 
 - ✅ **Full Lex V2 Bot Management** - Create and configure bots with JSON-based configuration
+- ✅ **Bot Versioning** - Create immutable snapshots for production deployments (v1.1.0)
 - ✅ **Slot Priority Configuration** - Set elicitation order for intent slots
 - ✅ **Multi-Locale Support** - Configure multiple languages and locales
 - ✅ **Lambda Integration** - Connect fulfillment and validation code hooks
@@ -17,6 +23,7 @@ Terraform module for creating and managing AWS Lex V2 bots with advanced feature
 ⚠️ **Important**: This module uses a `local-exec` provisioner that requires `jq` to be installed on the machine running Terraform.
 
 **Install jq:**
+
 ```bash
 # macOS
 brew install jq
@@ -26,23 +33,25 @@ sudo apt-get install jq
 
 # RHEL/CentOS
 sudo yum install jq
+
+# Windows (Chocolatey)
+choco install jq
 ```
 
-## Usage
+## Quick Start
 
-### Basic Example
 ```hcl
 module "lex_bot" {
-  source = "your-org/lexv2models/aws"
-  version = "1.0.0"
+  source  = "infrakraft/lexv2models/aws"
+  version = "1.1.0"
 
   # IAM Role name (must be unique in your AWS account)
   lexv2_bot_role_name = "my-lex-bot-role"
 
-  # Bot configuration object
+  # Bot configuration
   bot_config = {
     name               = "CustomerServiceBot"
-    description        = "Bot for customer service"
+    description        = "Customer service chatbot"
     idle_session_ttl   = 300
     
     data_privacy = {
@@ -59,68 +68,19 @@ module "lex_bot" {
           voice_id = "Joanna"
         }
 
-        slot_types = {
-          RoomType = {
-            description = "Types of rooms"
-            slot_type_values = [
-              { sample_value = { value = "deluxe" } },
-              { sample_value = { value = "standard" } },
-              { sample_value = { value = "suite" } }
-            ]
-          }
-        }
-
         intents = {
-          BookRoom = {
-            description = "Book a hotel room"
+          Greeting = {
+            description = "Greet the user"
             
             sample_utterances = [
-              { utterance = "I want to book a room" },
-              { utterance = "Book a {RoomType} room" }
+              { utterance = "Hello" },
+              { utterance = "Hi there" }
             ]
             
-            slots = [
-              {
-                slot_name    = "RoomType"
-                slot_type_id = "RoomType"
-                value_elicitation_setting = {
-                  slot_constraint = "Required"
-                  prompt_specification = {
-                    message_groups = [{
-                      message = {
-                        plain_text_message = { 
-                          value = "What type of room would you like?" 
-                        }
-                      }
-                    }]
-                    max_retries = 2
-                  }
-                }
-              },
-              {
-                slot_name    = "CheckInDate"
-                slot_type_id = "AMAZON.Date"
-                value_elicitation_setting = {
-                  slot_constraint = "Required"
-                  prompt_specification = {
-                    message_groups = [{
-                      message = {
-                        plain_text_message = { 
-                          value = "What is your check-in date?" 
-                        }
-                      }
-                    }]
-                    max_retries = 2
-                  }
-                }
-              }
-            ]
-
-            # Define slot elicitation order
-            slot_priorities = [
-              { slot_name = "RoomType", priority = 1 },
-              { slot_name = "CheckInDate", priority = 2 }
-            ]
+            closing_prompt = {
+              message    = "Hello! How can I help you today?"
+              variations = []
+            }
           }
         }
       }
@@ -134,7 +94,86 @@ module "lex_bot" {
 }
 ```
 
-### Example with Lambda Fulfillment
+## Bot Versioning (v1.1.0)
+
+Bot versions create **immutable snapshots** of your bot configuration, essential for:
+- **Production deployments** - Deploy stable versions to production
+- **Rollback capabilities** - Revert to previous versions if needed
+- **Change tracking** - Document what changed in each version
+- **Bot aliases** - Versions are required for creating aliases (coming in v1.2.0)
+
+### Creating a Bot Version
+
+```hcl
+module "lex_bot" {
+  source  = "infrakraft/lexv2models/aws"
+  version = "1.1.0"
+
+  lexv2_bot_role_name = "my-lex-bot-role"
+  
+  bot_config = {
+    name               = "ProductionBot"
+    idle_session_ttl   = 300
+    data_privacy       = { child_directed = false }
+    
+    locales = {
+      en_US = {
+        locale_id                = "en_US"
+        nlu_confidence_threshold = 0.4
+        # ... intents and slots ...
+      }
+    }
+  }
+
+  # Enable bot versioning
+  create_bot_version      = true
+  bot_version_description = "v1.0 - Initial production release with booking flow"
+}
+```
+
+### Version Workflow
+
+1. **Develop** - Make changes in DRAFT version
+2. **Test** - Thoroughly test in DRAFT
+3. **Version** - Create numbered version (1, 2, 3, etc.)
+4. **Deploy** - Use version in production via aliases
+
+### Accessing Version Information
+
+```hcl
+output "version_info" {
+  value = {
+    version_number = module.lex_bot.bot_version      # "1"
+    version_arn    = module.lex_bot.bot_version_arn  # Full ARN
+  }
+}
+```
+
+### Advanced: Locale-Specific Versions
+
+Use different source versions for different locales:
+
+```hcl
+module "lex_bot" {
+  source  = "infrakraft/lexv2models/aws"
+  version = "1.1.0"
+  
+  # ... bot_config ...
+  
+  create_bot_version = true
+  bot_version_locale_specification = {
+    "en_US" = "1"  # Use version 1 for English
+    "es_ES" = "2"  # Use version 2 for Spanish
+  }
+}
+```
+
+See the [versioning example](./examples/lex-with-versioning) for a complete working example.
+
+## Usage Examples
+
+### Basic Bot with Lambda Fulfillment
+
 ```hcl
 # Lambda function for fulfillment
 resource "aws_lambda_function" "bot_fulfillment" {
@@ -146,8 +185,8 @@ resource "aws_lambda_function" "bot_fulfillment" {
 }
 
 module "lex_bot" {
-  source = "your-org/lexv2models/aws"
-  version = "1.0.0"
+  source  = "infrakraft/lexv2models/aws"
+  version = "1.1.0"
 
   lexv2_bot_role_name = "my-lex-bot-role"
 
@@ -180,7 +219,13 @@ module "lex_bot" {
               { utterance = "I want to book a room" }
             ]
             
-            # ... slots configuration ...
+            slots = {
+              RoomType = {
+                slot_type = "RoomType"
+                required  = true
+                prompt    = "What type of room would you like?"
+              }
+            }
           }
         }
       }
@@ -189,7 +234,8 @@ module "lex_bot" {
 }
 ```
 
-### Example with CloudWatch Logging
+### Bot with CloudWatch Logging
+
 ```hcl
 resource "aws_cloudwatch_log_group" "lex_logs" {
   name              = "/aws/lex/my-bot"
@@ -197,8 +243,8 @@ resource "aws_cloudwatch_log_group" "lex_logs" {
 }
 
 module "lex_bot" {
-  source = "your-org/lexv2models/aws"
-  version = "1.0.0"
+  source  = "infrakraft/lexv2models/aws"
+  version = "1.1.0"
 
   lexv2_bot_role_name = "my-lex-bot-role"
 
@@ -211,81 +257,91 @@ module "lex_bot" {
 }
 ```
 
+## Examples
+
+Complete working examples are available in the [examples](./examples) directory:
+
+- **[lex-only](./examples/lex-only)** - Basic bot without versioning
+- **[lex-with-versioning](./examples/lex-with-versioning)** - Bot with version snapshots (v1.1.0)
+
+## Requirements
+
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 4.0 |
+| <a name="requirement_null"></a> [null](#requirement\_null) | >= 3.0 |
+
+## Providers
+
+No direct providers used (all resources are in the submodule).
+
+## Modules
+
+| Name | Source | Version |
+|------|--------|---------|
+| <a name="module_lexv2models"></a> [lexv2models](#module\_lexv2models) | ./modules/lexv2models | n/a |
+
+## Resources
+
+No direct resources (all resources are in the submodule).
+
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| bot_config | Decoded bot configuration object (see examples) | `any` | n/a | yes |
-| lexv2_bot_role_name | IAM role name for the Lex bot | `string` | n/a | yes |
-| lambda_functions | Map of Lambda functions for fulfillment | `map(object)` | `{}` | no |
-| lambda_arns | Map of logical name to Lambda ARN | `map(string)` | `{}` | no |
-| lex_bot_alias_id | Bot alias ID for Lambda permissions | `string` | `"TSTALIASID"` | no |
-| polly_arn | ARN for Amazon Polly permissions | `string` | `null` | no |
-| cloudwatch_log_group_arn | CloudWatch Log Group ARN for logging | `string` | `null` | no |
-| tags | Tags for all resources | `map(string)` | `{}` | no |
+| <a name="input_bot_config"></a> [bot\_config](#input\_bot\_config) | Decoded bot configuration object (see examples) | `any` | n/a | yes |
+| <a name="input_lexv2_bot_role_name"></a> [lexv2\_bot\_role\_name](#input\_lexv2\_bot\_role\_name) | IAM role name for the Lex bot | `string` | n/a | yes |
+| <a name="input_create_bot_version"></a> [create\_bot\_version](#input\_create\_bot\_version) | Whether to create a bot version | `bool` | `false` | no |
+| <a name="input_bot_version_description"></a> [bot\_version\_description](#input\_bot\_version\_description) | Description for the bot version | `string` | `""` | no |
+| <a name="input_bot_version_locale_specification"></a> [bot\_version\_locale\_specification](#input\_bot\_version\_locale\_specification) | Map of locale-specific source versions | `map(string)` | `{}` | no |
+| <a name="input_lambda_functions"></a> [lambda\_functions](#input\_lambda\_functions) | Map of Lambda functions for fulfillment | `map(object)` | `{}` | no |
+| <a name="input_lambda_arns"></a> [lambda\_arns](#input\_lambda\_arns) | Map of logical name to Lambda ARN | `map(string)` | `{}` | no |
+| <a name="input_lex_bot_alias_id"></a> [lex\_bot\_alias\_id](#input\_lex\_bot\_alias\_id) | Bot alias ID for Lambda permissions | `string` | `"TSTALIASID"` | no |
+| <a name="input_polly_arn"></a> [polly\_arn](#input\_polly\_arn) | ARN for Amazon Polly permissions | `string` | `null` | no |
+| <a name="input_cloudwatch_log_group_arn"></a> [cloudwatch\_log\_group\_arn](#input\_cloudwatch\_log\_group\_arn) | CloudWatch Log Group ARN for logging | `string` | `null` | no |
+| <a name="input_tags"></a> [tags](#input\_tags) | Tags for all resources | `map(string)` | `{}` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| bot_id | The unique identifier of the bot |
-| bot_arn | The ARN of the bot |
-| bot_name | The name of the bot |
-| lex_bot_role_arn | ARN of the IAM role for the bot |
-| intent_ids | Map of intent names to their IDs |
-| slot_ids | Map of slot names to their IDs |
+| <a name="output_bot_id"></a> [bot\_id](#output\_bot\_id) | The unique identifier of the bot |
+| <a name="output_bot_arn"></a> [bot\_arn](#output\_bot\_arn) | The ARN of the bot |
+| <a name="output_bot_name"></a> [bot\_name](#output\_bot\_name) | The name of the bot |
+| <a name="output_lex_bot_role_arn"></a> [lex\_bot\_role\_arn](#output\_lex\_bot\_role\_arn) | ARN of the IAM role for the bot |
+| <a name="output_bot_version"></a> [bot\_version](#output\_bot\_version) | The version number (if created) |
+| <a name="output_bot_version_arn"></a> [bot\_version\_arn](#output\_bot\_version\_arn) | The ARN of the bot version (if created) |
+| <a name="output_intent_ids"></a> [intent\_ids](#output\_intent\_ids) | Map of intent names to their IDs |
+| <a name="output_slot_ids"></a> [slot\_ids](#output\_slot\_ids) | Map of slot names to their IDs |
 
 ## Bot Configuration Schema
 
-The `bot_config` variable expects a structured object with the following schema:
+The `bot_config` variable expects a structured object. See the [examples](./examples) for complete configurations.
+
+### Minimal Configuration
+
 ```hcl
-{
-  name               = string          # Required: Bot name
-  description        = string          # Optional: Bot description
-  idle_session_ttl   = number          # Required: 60-86400 seconds
-  data_privacy       = {               # Required
-    child_directed = bool
-  }
-  bot_type           = string          # Optional: "Bot" or "BotNetwork"
+bot_config = {
+  name               = "MyBot"
+  idle_session_ttl   = 300
+  data_privacy       = { child_directed = false }
   
-  locales = {                          # Required: At least one locale
-    locale_key = {
-      locale_id                = string  # e.g., "en_US", "es_ES"
-      description              = string
-      nlu_confidence_threshold = number  # 0.0-1.0
+  locales = {
+    en_US = {
+      locale_id                = "en_US"
+      nlu_confidence_threshold = 0.4
       
-      voice_settings = {                 # Optional
-        voice_id = string
-      }
-      
-      slot_types = {                     # Optional
-        SlotTypeName = {
-          description      = string
-          slot_type_values = list(object({
-            sample_value = { value = string }
-          }))
-        }
-      }
-      
-      intents = {                        # Required: At least one intent
-        IntentName = {
-          description             = string
-          fulfillment_lambda_name = string  # Optional: from lambda_functions
-          
-          sample_utterances = list(object({
-            utterance = string
-          }))
-          
-          slots = list(object({
-            slot_name    = string
-            slot_type_id = string
-            value_elicitation_setting = object({...})
-          }))
-          
-          slot_priorities = list(object({  # Optional
-            slot_name = string
-            priority  = number
-          }))
+      intents = {
+        MyIntent = {
+          description = "My intent"
+          sample_utterances = [
+            { utterance = "Hello" }
+          ]
+          closing_prompt = {
+            message = "Response message"
+            variations = []
+          }
         }
       }
     }
@@ -293,6 +349,44 @@ The `bot_config` variable expects a structured object with the following schema:
 }
 ```
 
+## Known Limitations
+
+- **jq Dependency**: The module requires `jq` to be installed for slot priority management
+- **CI/CD Compatibility**: Local-exec provisioners may not work in containerized CI/CD environments without additional setup
+- **Slot Priority Updates**: Changing slot priorities requires the `local-exec` provisioner to run
+
+## Roadmap
+
+- [x] Bot versioning support (v1.1.0)
+- [ ] Bot alias support (v1.2.0)
+- [ ] Conversation logging enhancements (v1.3.0)
+- [ ] Replace jq dependency with native Terraform (v2.0.0)
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/infrakraft/terraform-aws-lexv2models/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/infrakraft/terraform-aws-lexv2models/discussions)
+
 ## License
 
-MIT Licensed. See [LICENSE](LICENSE) for details.
+This module is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Authors
+
+Created and maintained by [Infrakraft](https://github.com/infrakraft).
+
+## Acknowledgments
+
+- AWS Lex V2 Documentation
+- Terraform AWS Provider Documentation
+- HashiCorp Terraform Best Practices

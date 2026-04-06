@@ -2,7 +2,7 @@ locals {
   bot_config = jsondecode(file("${path.module}/bot_config.json"))
 }
 
-module "lex" {
+module "lex_only" {
   source = "../../modules/lexv2models"
 
   bot_config          = local.bot_config
@@ -12,16 +12,4 @@ module "lex" {
     Environment = var.environment
     ManagedBy   = "Terraform"
   }
-}
-
-# ----------------------------------------------------------------------------
-# Outputs
-# ----------------------------------------------------------------------------
-
-output "bot_id" {
-  value = module.lex.bot_id
-}
-
-output "bot_arn" {
-  value = module.lex.bot_arn
 }
