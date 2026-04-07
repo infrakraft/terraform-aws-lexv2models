@@ -88,3 +88,17 @@ output "bot_version_arn" {
   description = "The ARN of the bot version. Returns null if no version was created."
   value       = var.create_bot_version ? aws_lexv2models_bot_version.this[0].id : null
 }
+
+# ==============================================================================
+# Bot Building Outputs (v1.2.0)
+# ==============================================================================
+
+output "bot_build_triggered" {
+  description = "Whether bot locale builds were triggered. Returns true if auto_build_bot_locales is enabled."
+  value       = var.auto_build_bot_locales
+}
+
+output "bot_locales_to_build" {
+  description = "List of locale IDs that were triggered for building"
+  value       = var.auto_build_bot_locales ? keys(local.locales) : []
+}

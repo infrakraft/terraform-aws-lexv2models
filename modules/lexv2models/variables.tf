@@ -144,3 +144,68 @@ variable "bot_version_locale_specification" {
   type        = map(string)
   default     = {}
 }
+
+# ==============================================================================
+# Bot Building Configuration (v1.2.0)
+# ==============================================================================
+
+variable "auto_build_bot_locales" {
+  description = <<-EOT
+    Whether to automatically build bot locales after creation/update.
+    
+    When enabled:
+    - Bot locales are built automatically via AWS CLI
+    - No manual "Build" button clicking required in AWS Console
+    - Bot is ready for testing immediately after deployment
+    
+    When disabled:
+    - Bot remains in "Not Built" state
+    - Manual build required in AWS Console
+    - Useful for development/testing scenarios
+    
+    Note: Building can take 1-2 minutes per locale.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "wait_for_build_completion" {
+  description = <<-EOT
+    Whether to wait for bot locale build to complete before proceeding.
+    
+    When true:
+    - Terraform waits until build completes (status: Built or ReadyExpressTesting)
+    - Ensures bot is ready before moving to next resource
+    - Safer for production deployments
+    
+    When false:
+    - Terraform triggers build but doesn't wait
+    - Faster deployment but bot may not be ready
+    - Useful for large bots or development environments
+    
+    Only applies when auto_build_bot_locales = true.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "build_timeout_seconds" {
+  description = <<-EOT
+    Maximum time (in seconds) to wait for bot locale build to complete.
+    Only used when wait_for_build_completion = true.
+    
+    Typical build times:
+    - Simple bots: 30-60 seconds
+    - Medium bots: 60-120 seconds
+    - Complex bots: 120-300 seconds
+    
+    Default: 300 seconds (5 minutes)
+  EOT
+  type        = number
+  default     = 300
+
+  validation {
+    condition     = var.build_timeout_seconds >= 30 && var.build_timeout_seconds <= 1800
+    error_message = "Build timeout must be between 30 and 1800 seconds (30 minutes)."
+  }
+}

@@ -27,6 +27,11 @@ module "lexv2models" {
   bot_version_description          = var.bot_version_description
   bot_version_locale_specification = var.bot_version_locale_specification
 
+  # Bot Building Configuration (v1.2.0)
+  auto_build_bot_locales    = var.auto_build_bot_locales
+  wait_for_build_completion = var.wait_for_build_completion
+  build_timeout_seconds     = var.build_timeout_seconds
+
   # Tags
   tags = var.tags
 }

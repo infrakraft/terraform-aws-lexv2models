@@ -110,3 +110,17 @@ output "bot_version_arn" {
   description = "The ARN of the bot version (if created)"
   value       = module.lexv2models.bot_version_arn
 }
+
+# ============================================================================
+# Bot Building Outputs (v1.2.0)
+# ============================================================================
+
+output "bot_build_triggered" {
+  description = "Whether bot locale builds were triggered"
+  value       = module.lexv2models.bot_build_triggered
+}
+
+output "bot_locales_to_build" {
+  description = "List of locale IDs that were triggered for building"
+  value       = module.lexv2models.bot_locales_to_build
+}

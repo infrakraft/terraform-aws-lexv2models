@@ -8,9 +8,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Bot alias support
+- Bot alias support (pending Terraform provider)
 - Conversation logging enhancements
 - Multi-region bot deployment examples
+- Code hooks enhancements
+- Custom vocabulary support
+
+---
+
+## [1.2.0] - 2025-04-08
+
+### Added
+- **Automatic Bot Building**: Build bot locales automatically after deployment (no manual console clicking!)
+  - New variable: `auto_build_bot_locales` (bool, default: true) - Enable/disable automatic building
+  - New variable: `wait_for_build_completion` (bool, default: false) - Wait for build to complete
+  - New variable: `build_timeout_seconds` (number, default: 300) - Maximum wait time for builds
+  - New resource: `null_resource.build_bot_locales` - Triggers build via AWS CLI
+  - New outputs: `bot_build_triggered`, `bot_locales_to_build` - Build status information
+  - Example: `examples/lex-with-building/` - Complete working example with automatic building
+- **Build Status Monitoring**: Real-time build progress tracking with status checks
+- **Build Error Handling**: Automatic failure detection and reporting
+- **Documentation**:
+  - Comprehensive building documentation in main README
+  - Detailed README for `lex-with-building` example
+  - Build configuration best practices
+  - Troubleshooting guide for build issues
+
+### Changed
+- Root module `main.tf` updated to pass building variables to submodule
+- Root module `variables.tf` updated with building variable definitions
+- Root module `outputs.tf` updated with build-related outputs
+- Submodule `main.tf` updated with `null_resource.build_bot_locales` resource
+- Submodule `variables.tf` updated with building variables
+- Submodule `outputs.tf` updated with build outputs
+- Enhanced README with bot building section and examples
+- Updated roadmap to reflect completed and planned features
+- Updated known limitations section
+
+### Fixed
+- None
+
+### Breaking Changes
+- None - This release is fully backwards compatible
+- Existing configurations continue to work without modification
+- Bot building is enabled by default but doesn't wait for completion (fast deployments)
+- To disable building: set `auto_build_bot_locales = false`
+
+### Migration Notes
+
+No migration required. Bot building is enabled by default with sensible defaults.
+
+**To use automatic building with wait:**
+```hcl
+module "lex_bot" {
+  source  = "infrakraft/lexv2models/aws"
+  version = "1.2.0"  # Update from 1.1.0
+
+  # ... existing configuration ...
+
+  # Optional: Wait for build completion (default: false)
+  wait_for_build_completion = true
+  build_timeout_seconds     = 300
+}
+```
+
+**To disable automatic building:**
+```hcl
+module "lex_bot" {
+  source  = "infrakraft/lexv2models/aws"
+  version = "1.2.0"
+
+  # ... existing configuration ...
+
+  # Disable automatic building
+  auto_build_bot_locales = false
+}
+```
+
+### Technical Details
+
+- Uses AWS CLI `build-bot-locale` command via `null_resource`
+- Triggers rebuild when intents, slots, or slot types change (hash-based)
+- Polls build status every 5 seconds when waiting for completion
+- Supports timeouts from 30 seconds to 30 minutes
+- Provides detailed build failure messages
 
 ---
 
@@ -114,10 +195,11 @@ module "lex_bot" {
 
 ## Version Comparison
 
-| Version | Bot Versioning | Bot Aliases | Multi-Locale | Lambda Integration | CloudWatch Logs |
-|---------|----------------|-------------|--------------|-------------------|-----------------|
-| 1.1.0   | ✅ Yes         | ❌ No       | ✅ Yes       | ✅ Yes            | ✅ Yes          |
-| 1.0.0   | ❌ No          | ❌ No       | ✅ Yes       | ✅ Yes            | ✅ Yes          |
+| Version | Bot Versioning | Bot Building | Bot Aliases | Multi-Locale | Lambda Integration |
+|---------|----------------|--------------|-------------|--------------|-------------------|
+| 1.2.0   | ✅ Yes         | ✅ Yes       | ❌ No       | ✅ Yes       | ✅ Yes            |
+| 1.1.0   | ✅ Yes         | ❌ No        | ❌ No       | ✅ Yes       | ✅ Yes            |
+| 1.0.0   | ❌ No          | ❌ No        | ❌ No       | ✅ Yes       | ✅ Yes            |
 
 ---
 
@@ -206,6 +288,7 @@ terraform apply
 - **Issues**: [github.com/infrakraft/terraform-aws-lexv2models/issues](https://github.com/infrakraft/terraform-aws-lexv2models/issues)
 - **Discussions**: [github.com/infrakraft/terraform-aws-lexv2models/discussions](https://github.com/infrakraft/terraform-aws-lexv2models/discussions)
 
-[Unreleased]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/infrakraft/terraform-aws-lexv2models/releases/tag/v1.0.0

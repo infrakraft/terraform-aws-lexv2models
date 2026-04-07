@@ -464,3 +464,120 @@ resource "aws_lexv2models_bot_version" "this" {
     null_resource.slot_priorities,
   ]
 }
+
+# ==============================================================================
+# Bot Locale Building (v1.2.0)
+# ==============================================================================
+# Automatically builds bot locales after creation/update.
+# This makes the bot ready for testing without manual intervention.
+# ==============================================================================
+
+resource "null_resource" "build_bot_locales" {
+  for_each = var.auto_build_bot_locales ? local.locales : {}
+
+  triggers = {
+    bot_id    = aws_lexv2models_bot.this.id
+    locale_id = each.key
+    # Rebuild when intents or slots change
+    intents_hash = md5(jsonencode([
+      for intent in local.intents : intent
+      if intent.locale == each.key
+    ]))
+    slots_hash = md5(jsonencode([
+      for slot in local.slots : slot
+      if slot.locale == each.key
+    ]))
+    slot_types_hash = md5(jsonencode([
+      for st in local.slot_types : st
+      if st.locale == each.key
+    ]))
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-BASH
+      set -euo pipefail
+
+      BOT_ID="${aws_lexv2models_bot.this.id}"
+      LOCALE_ID="${each.key}"
+      REGION="${data.aws_region.current.id}"
+      WAIT_FOR_COMPLETION="${var.wait_for_build_completion}"
+      TIMEOUT="${var.build_timeout_seconds}"
+
+      echo "Building bot locale: $LOCALE_ID for bot: $BOT_ID"
+
+      # Trigger the build
+      aws lexv2-models build-bot-locale \
+        --region "$REGION" \
+        --bot-id "$BOT_ID" \
+        --bot-version DRAFT \
+        --locale-id "$LOCALE_ID" \
+        --output json
+
+      echo "✓ Build triggered for locale: $LOCALE_ID"
+
+      # Wait for build to complete if requested
+      if [ "$WAIT_FOR_COMPLETION" = "true" ]; then
+        echo "Waiting for build to complete (timeout: $${TIMEOUT}s)..."
+        
+        ELAPSED=0
+        SLEEP_INTERVAL=5
+        
+        while [ $ELAPSED -lt $TIMEOUT ]; do
+          # Check build status
+          STATUS=$(aws lexv2-models describe-bot-locale \
+            --region "$REGION" \
+            --bot-id "$BOT_ID" \
+            --bot-version DRAFT \
+            --locale-id "$LOCALE_ID" \
+            --query 'botLocaleStatus' \
+            --output text)
+          
+          echo "  Status: $STATUS ($${ELAPSED}s elapsed)"
+          
+          # Check if build completed successfully
+          if [ "$STATUS" = "Built" ] || [ "$STATUS" = "ReadyExpressTesting" ]; then
+            echo "✓ Build completed successfully for locale: $LOCALE_ID"
+            exit 0
+          fi
+          
+          # Check if build failed
+          if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Deleting" ]; then
+            echo "✗ Build failed for locale: $LOCALE_ID with status: $STATUS"
+            
+            # Try to get failure reasons
+            FAILURES=$(aws lexv2-models describe-bot-locale \
+              --region "$REGION" \
+              --bot-id "$BOT_ID" \
+              --bot-version DRAFT \
+              --locale-id "$LOCALE_ID" \
+              --query 'failureReasons' \
+              --output text 2>/dev/null || echo "Unknown")
+            
+            echo "Failure reasons: $FAILURES"
+            exit 1
+          fi
+          
+          # Wait before next check
+          sleep $SLEEP_INTERVAL
+          ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+        done
+        
+        echo "⚠ Build timeout reached for locale: $LOCALE_ID after $${TIMEOUT}s"
+        echo "  Build may still be in progress. Check AWS Console for status."
+        exit 0
+      else
+        echo "Build triggered but not waiting for completion (wait_for_build_completion = false)"
+      fi
+    BASH
+  }
+
+  # Ensure all resources are created before building
+  depends_on = [
+    aws_lexv2models_bot_locale.locales,
+    aws_lexv2models_intent.intents,
+    aws_lexv2models_slot.slots,
+    aws_lexv2models_slot_type.slot_types,
+    null_resource.slot_priorities
+  ]
+}

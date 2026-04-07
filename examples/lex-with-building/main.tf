@@ -2,19 +2,20 @@ locals {
   bot_config = jsondecode(file("${path.module}/bot_config.json"))
 }
 
-module "lex_with_versioning" {
+module "lex_bot_with_building" {
   source = "../../modules/lexv2models"
 
   bot_config          = local.bot_config
   lexv2_bot_role_name = "${var.environment}-${local.bot_config.name}-lex-role"
 
-  # Enable versioning
-  create_bot_version      = true
-  bot_version_description = "v1.0.0 - Initial release"
+  # Bot Building Configuration (v1.2.0)
+  auto_build_bot_locales    = true # Build automatically
+  wait_for_build_completion = true # Wait for build to finish
+  build_timeout_seconds     = 300  # 5 minutes max
 
   tags = {
     Environment = var.environment
-    Feature     = "Versioning"
+    Feature     = "auto-building"
     ManagedBy   = "Terraform"
   }
 }
