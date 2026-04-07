@@ -196,3 +196,45 @@ variable "bot_version_locale_specification" {
   type        = map(string)
   default     = {}
 }
+
+# ==============================================================================
+# Bot Building Configuration (v1.2.0)
+# ==============================================================================
+
+variable "auto_build_bot_locales" {
+  description = <<-EOT
+    Whether to automatically build bot locales after creation/update.
+    
+    When enabled, bot is ready for testing immediately without manual builds.
+    When disabled, manual build required in AWS Console.
+    
+    Default: true (recommended for most use cases)
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "wait_for_build_completion" {
+  description = <<-EOT
+    Whether to wait for bot locale build to complete before proceeding.
+    
+    Recommended settings:
+    - Production: true (ensures bot is ready)
+    - Development: false (faster iterations)
+    
+    Default: false (faster deployments)
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "build_timeout_seconds" {
+  description = <<-EOT
+    Maximum time to wait for bot locale build to complete.
+    Only used when wait_for_build_completion = true.
+    
+    Default: 300 seconds (5 minutes)
+  EOT
+  type        = number
+  default     = 300
+}

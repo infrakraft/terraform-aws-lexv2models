@@ -9,14 +9,17 @@ Terraform module for creating and managing AWS Lex V2 bots with advanced feature
 
 ## Features
 
+## Features
+
 - ✅ **Full Lex V2 Bot Management** - Create and configure bots with JSON-based configuration
+- ✅ **Automatic Bot Building** - Build bots automatically after deployment (v1.2.0)
 - ✅ **Bot Versioning** - Create immutable snapshots for production deployments (v1.1.0)
 - ✅ **Slot Priority Configuration** - Set elicitation order for intent slots
 - ✅ **Multi-Locale Support** - Configure multiple languages and locales
 - ✅ **Lambda Integration** - Connect fulfillment and validation code hooks
 - ✅ **IAM Role Management** - Automatic IAM role creation with proper permissions
 - ✅ **Polly Integration** - Voice settings with Amazon Polly
-- ✅ **CloudWatch Logging** - Conversation logging to CloudWatch
+- ✅ **CloudWatch Logging Support** - Ready for conversation logging (requires setup)
 
 ## Prerequisites
 
@@ -170,6 +173,64 @@ module "lex_bot" {
 
 See the [versioning example](./examples/lex-with-versioning) for a complete working example.
 
+## Bot Building (v1.2.0)
+
+Automatically build bot locales after deployment, making your bot ready for testing immediately without manual intervention.
+
+### Why Automatic Building?
+
+Without automatic building:
+1. Deploy bot with Terraform
+2. Go to AWS Console
+3. Click "Build" for each locale
+4. Wait 1-2 minutes
+5. Finally test
+
+With automatic building:
+1. Deploy bot with Terraform
+2. Bot is ready! ✅
+
+### Enabling Automatic Building
+```hcl
+module "lex_bot" {
+  source  = "infrakraft/lexv2models/aws"
+  version = "1.2.0"
+
+  lexv2_bot_role_name = "my-lex-bot-role"
+  
+  bot_config = {
+    # ... your bot configuration ...
+  }
+
+  # Enable automatic building
+  auto_build_bot_locales    = true   # Default: true
+  wait_for_build_completion = true   # Wait for build to finish
+  build_timeout_seconds     = 300    # 5 minutes timeout
+}
+```
+
+### Configuration Options
+
+**Fast Mode (Development):**
+```hcl
+auto_build_bot_locales    = true
+wait_for_build_completion = false  # Don't wait, faster iterations
+```
+
+**Production Mode:**
+```hcl
+auto_build_bot_locales    = true
+wait_for_build_completion = true   # Ensure bot is ready
+build_timeout_seconds     = 600    # 10 minutes for complex bots
+```
+
+**Manual Building:**
+```hcl
+auto_build_bot_locales = false  # Build manually in console
+```
+
+See the [automatic building example](./examples/lex-with-building) for a complete working example.
+
 ## Usage Examples
 
 ### Basic Bot with Lambda Fulfillment
@@ -261,8 +322,9 @@ module "lex_bot" {
 
 Complete working examples are available in the [examples](./examples) directory:
 
-- **[lex-only](./examples/lex-only)** - Basic bot without versioning
+- **[lex-only](./examples/lex-only)** - Basic bot without versioning or auto-building
 - **[lex-with-versioning](./examples/lex-with-versioning)** - Bot with version snapshots (v1.1.0)
+- **[lex-with-building](./examples/lex-with-building)** - Bot with automatic building (v1.2.0)
 
 ## Requirements
 
@@ -352,14 +414,18 @@ bot_config = {
 ## Known Limitations
 
 - **jq Dependency**: The module requires `jq` to be installed for slot priority management
+- **AWS CLI Dependency**: Automatic building requires AWS CLI for build triggering
 - **CI/CD Compatibility**: Local-exec provisioners may not work in containerized CI/CD environments without additional setup
-- **Slot Priority Updates**: Changing slot priorities requires the `local-exec` provisioner to run
+- **Bot Alias**: Native Terraform resource not yet available (tracked in [GitHub Issue #35780](https://github.com/hashicorp/terraform-provider-aws/issues/35780))
 
 ## Roadmap
 
-- [x] Bot versioning support (v1.1.0)
-- [ ] Bot alias support (v1.2.0)
-- [ ] Conversation logging enhancements (v1.3.0)
+- [x] Bot versioning support (v1.1.0) ✅
+- [x] Automatic bot building (v1.2.0) ✅
+- [ ] Bot alias support (v1.3.0) - Pending Terraform provider support
+- [ ] Code hooks and Lambda integration enhancements (v1.4.0)
+- [ ] Custom vocabulary support (v1.5.0)
+- [ ] Conversation logging enhancements (v1.6.0)
 - [ ] Replace jq dependency with native Terraform (v2.0.0)
 
 ## Contributing
@@ -371,6 +437,23 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
+
+
+## Upcoming Features
+
+The following features are planned for future releases but require additional AWS provider support or implementation:
+
+### Planned (Terraform Provider Support Needed)
+- **Bot Aliases** - Waiting for `aws_lexv2models_bot_alias` resource
+- **Conversation Logging** - Partial support ready, needs testing infrastructure
+
+### Planned (Implementation Ready)
+- **Code Hooks** - Enhanced Lambda integration
+- **Custom Vocabulary** - Custom word pronunciations
+- **Slot Value Elicitation** - Advanced prompting strategies
+- **Session Attributes** - Pass context between turns
+
+**Want to contribute?** Check our [Contributing Guidelines](CONTRIBUTING.md) or open an issue to discuss features!
 
 ## Support
 

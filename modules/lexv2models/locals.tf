@@ -143,36 +143,36 @@ locals {
   # ============================================================================
 
   # Group slots by their composite intent key so we can assign priority indices
-  slots_by_intent = {
-    for key, slot in {
-      for slot in local.slots :
-      "${slot.locale}-${slot.intent}-${slot.name}" => slot
-    } :
-    "${slot.locale}-${slot.intent}" => slot...
-  }
+  # slots_by_intent = {
+  #   for key, slot in {
+  #     for slot in local.slots :
+  #     "${slot.locale}-${slot.intent}-${slot.name}" => slot
+  #   } :
+  #   "${slot.locale}-${slot.intent}" => slot...
+  # }
 
   # ============================================================================
   # Lambda map — intent key → ARN (for reference; hooks use lambda_arns_effective)
   # ============================================================================
 
-  lambda_map = {
-    for intent in local.intents :
-    "${intent.locale}-${intent.name}" => lookup(local.lambda_arns_effective, intent.fulfillment_lambda_name, null)
-    if intent.fulfillment_lambda_name != null
-  }
+  #   lambda_map = {
+  #     for intent in local.intents :
+  #     "${intent.locale}-${intent.name}" => lookup(local.lambda_arns_effective, intent.fulfillment_lambda_name, null)
+  #     if intent.fulfillment_lambda_name != null
+  #   }
 
-  slot_priorities_by_intent = {
-    for intent_key, slots in local.slots_by_intent :
-    intent_key => [
-      for idx, slot_name in sort([
-        for s in slots : s.name
-        ]) : {
-        priority = idx + 1
+  #   slot_priorities_by_intent = {
+  #     for intent_key, slots in local.slots_by_intent :
+  #     intent_key => [
+  #       for idx, slot_name in sort([
+  #         for s in slots : s.name
+  #         ]) : {
+  #         priority = idx + 1
 
-        slotId = aws_lexv2models_slot.slots[
-          "${split("-", intent_key)[0]}-${split("-", intent_key)[1]}-${slot_name}"
-        ].slot_id
-      }
-    ]
-  }
+  #         slotId = aws_lexv2models_slot.slots[
+  #           "${split("-", intent_key)[0]}-${split("-", intent_key)[1]}-${slot_name}"
+  #         ].slot_id
+  #       }
+  #     ]
+  #   }
 }
