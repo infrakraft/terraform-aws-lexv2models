@@ -8,11 +8,117 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Bot alias support (pending Terraform provider)
-- Conversation logging enhancements
-- Multi-region bot deployment examples
-- Code hooks enhancements
+- Lambda fulfillment module
 - Custom vocabulary support
+- Bot alias support (pending provider)
+
+---
+
+## [1.3.0] - 2025-04-10
+
+### Added
+- **CloudWatch Logs Module**: Separate module for creating and managing CloudWatch log groups
+  - New module: `modules/cloudwatch-logs/` - Standalone log group creation
+  - New variable: `name` - Log group name
+  - New variable: `retention_in_days` - Configurable retention (1-3653 days, default: 365)
+  - New variable: `prevent_destroy` - Protect production logs from accidental deletion
+  - New variable: `kms_key_id` - Optional KMS encryption for logs at rest
+  - New outputs: `cloudwatch_log_group_name`, `cloudwatch_log_group_arn`
+  - Dual resource pattern (protected/unprotected) for lifecycle management
+  - Example: `examples/lex-with-cloudwatch-logs/` - Complete logging implementation
+- **CloudWatch Logging Integration**:
+  - New variable: `enable_cloudwatch_logging` - Boolean flag to enable/disable logging
+  - Automatic IAM permissions for Lex to write logs
+  - Support for log streams (`:*` resource pattern)
+  - Environment-based configuration (dev vs prod)
+- **Documentation**:
+  - Comprehensive CloudWatch logging guide in main README
+  - Complete example README with:
+    - Architecture diagrams
+    - Configuration patterns (dev/staging/prod)
+    - KMS encryption setup guide
+    - CloudWatch Insights query examples
+    - Cost analysis and optimization tips
+    - Troubleshooting guide
+  - Updated CHANGELOG with detailed migration notes
+
+### Changed
+- `modules/lexv2models/iam.tf` - Added CloudWatch logging IAM policy with boolean flag
+- `modules/lexv2models/variables.tf` - Added `enable_cloudwatch_logging` and `cloudwatch_log_group_arn`
+- Root `main.tf`, `variables.tf` - Pass-through CloudWatch logging configuration
+- README enhanced with CloudWatch logging section and modular examples
+- Updated roadmap and features list
+- Examples structure expanded to include logging patterns
+
+### Fixed
+- **Breaking Fix**: CloudWatch IAM policy now uses boolean flag instead of computed count
+- Resolved "count depends on resource attributes" error
+- Log stream permissions now correctly scoped with `:*` pattern
+- Proper handling of null vs empty string for log group ARN
+
+### Breaking Changes
+- None - Fully backwards compatible
+- CloudWatch logging is optional (default: `enable_cloudwatch_logging = false`)
+- Existing configurations work without modification
+
+### Migration Notes
+
+No migration required. CloudWatch logging is opt-in.
+
+**To enable CloudWatch logging:**
+
+```hcl
+# Step 1: Create log group module
+module "cloudwatch_logs" {
+  source = "infrakraft/lexv2models/aws//modules/cloudwatch-logs"
+  version = "1.3.0"
+  
+  name              = "/aws/lex/MyBot"
+  retention_in_days = 365
+  prevent_destroy   = true  # For production
+}
+
+# Step 2: Enable in bot module
+module "lex_bot" {
+  source  = "infrakraft/lexv2models/aws"
+  version = "1.3.0"
+  
+  # ... existing config ...
+  
+  # NEW: Enable CloudWatch logging
+  enable_cloudwatch_logging = true
+  cloudwatch_log_group_arn  = module.cloudwatch_logs.cloudwatch_log_group_arn
+}
+```
+
+### Technical Details
+
+- Uses boolean flag to avoid computed count issues
+- Modular design allows independent log group management
+- IAM policies automatically created when logging enabled
+- Supports environment-specific retention policies
+- Protected vs unprotected resources for lifecycle management
+- Log stream permissions included (`:*` pattern)
+
+### CloudWatch Logs Module
+
+The new `cloudwatch-logs` module provides:
+- Configurable retention (1 day to 10 years)
+- Optional KMS encryption
+- Lifecycle protection for production
+- Automatic tagging
+- Clean outputs for integration
+
+**Module Inputs:**
+- `name` - Log group name (required)
+- `retention_in_days` - Retention period (default: 365)
+- `prevent_destroy` - Lifecycle protection (default: false)
+- `kms_key_id` - KMS key for encryption (optional)
+- `tags` - Resource tags (optional)
+
+**Module Outputs:**
+- `cloudwatch_log_group_name` - Log group name
+- `cloudwatch_log_group_arn` - Log group ARN
 
 ---
 
@@ -195,11 +301,12 @@ module "lex_bot" {
 
 ## Version Comparison
 
-| Version | Bot Versioning | Bot Building | Bot Aliases | Multi-Locale | Lambda Integration |
-|---------|----------------|--------------|-------------|--------------|-------------------|
-| 1.2.0   | ✅ Yes         | ✅ Yes       | ❌ No       | ✅ Yes       | ✅ Yes            |
-| 1.1.0   | ✅ Yes         | ❌ No        | ❌ No       | ✅ Yes       | ✅ Yes            |
-| 1.0.0   | ❌ No          | ❌ No        | ❌ No       | ✅ Yes       | ✅ Yes            |
+| Version | Bot Versioning | Bot Building | CloudWatch Logs | Bot Aliases | Multi-Locale |
+|---------|----------------|--------------|-----------------|-------------|--------------|
+| 1.3.0   | ✅ Yes         | ✅ Yes       | ✅ Yes          | ❌ No       | ✅ Yes       |
+| 1.2.0   | ✅ Yes         | ✅ Yes       | ⚠️ Partial      | ❌ No       | ✅ Yes       |
+| 1.1.0   | ✅ Yes         | ❌ No        | ❌ No           | ❌ No       | ✅ Yes       |
+| 1.0.0   | ❌ No          | ❌ No        | ❌ No           | ❌ No       | ✅ Yes       |
 
 ---
 
@@ -288,7 +395,8 @@ terraform apply
 - **Issues**: [github.com/infrakraft/terraform-aws-lexv2models/issues](https://github.com/infrakraft/terraform-aws-lexv2models/issues)
 - **Discussions**: [github.com/infrakraft/terraform-aws-lexv2models/discussions](https://github.com/infrakraft/terraform-aws-lexv2models/discussions)
 
-[Unreleased]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/infrakraft/terraform-aws-lexv2models/releases/tag/v1.0.0

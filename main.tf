@@ -19,8 +19,11 @@ module "lexv2models" {
   lex_bot_alias_id = var.lex_bot_alias_id
 
   # IAM permissions (optional)
-  polly_arn                = var.polly_arn
-  cloudwatch_log_group_arn = var.cloudwatch_log_group_arn
+  polly_arn = var.polly_arn
+
+  # CloudWatch Logging (v1.3.0)
+  enable_cloudwatch_logging = var.enable_cloudwatch_logging
+  cloudwatch_log_group_arn  = var.cloudwatch_log_group_arn
 
   # Bot Version Configuration (v1.1.0)
   create_bot_version               = var.create_bot_version

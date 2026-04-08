@@ -57,7 +57,7 @@ resource "aws_iam_role_policy_attachment" "allow_synthesize_speech" {
 # ==============================================================================
 
 data "aws_iam_policy_document" "allow_cloudwatch_logging" {
-  count = var.cloudwatch_log_group_arn != null ? 1 : 0
+  count = var.enable_cloudwatch_logging ? 1 : 0
 
   statement {
     sid    = "AllowLexCloudWatchLogging"
@@ -65,24 +65,61 @@ data "aws_iam_policy_document" "allow_cloudwatch_logging" {
     actions = [
       "logs:CreateLogStream",
       "logs:PutLogEvents",
-      "logs:CreateLogGroup",
     ]
-    resources = [var.cloudwatch_log_group_arn]
+    resources = [
+      var.cloudwatch_log_group_arn,
+      "${var.cloudwatch_log_group_arn}:*" # Allow actions on log streams
+    ]
   }
 }
 
 resource "aws_iam_policy" "allow_cloudwatch_logging" {
-  count  = var.cloudwatch_log_group_arn != null ? 1 : 0
+  count  = var.enable_cloudwatch_logging ? 1 : 0
   name   = "${local.bot_name}-cloudwatch-logging-policy"
   policy = data.aws_iam_policy_document.allow_cloudwatch_logging[0].json
   tags   = var.tags
+  lifecycle {
+    precondition {
+      condition     = length(var.cloudwatch_log_group_arn) > 0
+      error_message = "cloudwatch_log_group_arn must be provided when enable_cloudwatch_logging is true."
+    }
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "allow_cloudwatch_logging" {
-  count      = var.cloudwatch_log_group_arn != null ? 1 : 0
+  count      = var.enable_cloudwatch_logging ? 1 : 0
   role       = aws_iam_role.lex_role.name
   policy_arn = aws_iam_policy.allow_cloudwatch_logging[0].arn
 }
+
+
+# data "aws_iam_policy_document" "allow_cloudwatch_logging" {
+#   count = var.cloudwatch_log_group_arn != null ? 1 : 0
+
+#   statement {
+#     sid    = "AllowLexCloudWatchLogging"
+#     effect = "Allow"
+#     actions = [
+#       "logs:CreateLogStream",
+#       "logs:PutLogEvents",
+#       "logs:CreateLogGroup",
+#     ]
+#     resources = [var.cloudwatch_log_group_arn]
+#   }
+# }
+
+# resource "aws_iam_policy" "allow_cloudwatch_logging" {
+#   count  = var.cloudwatch_log_group_arn != null ? 1 : 0
+#   name   = "${local.bot_name}-cloudwatch-logging-policy"
+#   policy = data.aws_iam_policy_document.allow_cloudwatch_logging[0].json
+#   tags   = var.tags
+# }
+
+# resource "aws_iam_role_policy_attachment" "allow_cloudwatch_logging" {
+#   count      = var.cloudwatch_log_group_arn != null ? 1 : 0
+#   role       = aws_iam_role.lex_role.name
+#   policy_arn = aws_iam_policy.allow_cloudwatch_logging[0].arn
+# }
 
 # ==============================================================================
 # Lambda invocation — created only when Lambda ARNs are provided
