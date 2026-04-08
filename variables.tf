@@ -150,10 +150,12 @@ variable "cloudwatch_log_group_arn" {
     ARN of the CloudWatch Log Group to grant Lex conversation logging permissions.
     Leave as empty string (default) to disable CloudWatch logging.
     
+    Required when enable_cloudwatch_logging is true.
+    
     Example: "arn:aws:logs:eu-west-1:123456789012:log-group:/aws/lex/my-bot"
   EOT
   type        = string
-  default     = "" # Changed from null to empty string
+  default     = ""
 }
 
 # ==============================================================================
