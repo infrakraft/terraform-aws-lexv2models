@@ -135,15 +135,25 @@ variable "polly_arn" {
   default     = null
 }
 
+variable "enable_cloudwatch_logging" {
+  description = <<-EOT
+    Whether to enable CloudWatch logging for the bot.
+    When true, cloudwatch_log_group_arn must be provided.
+    
+    Set to true when using the cloudwatch-logs module.
+  EOT
+  type        = bool
+  default     = false
+}
 variable "cloudwatch_log_group_arn" {
   description = <<-EOT
     ARN of the CloudWatch Log Group to grant Lex conversation logging permissions.
-    When null, no CloudWatch IAM policy is created.
+    Leave as empty string (default) to disable CloudWatch logging.
     
     Example: "arn:aws:logs:eu-west-1:123456789012:log-group:/aws/lex/my-bot"
   EOT
   type        = string
-  default     = null
+  default     = "" # Changed from null to empty string
 }
 
 # ==============================================================================

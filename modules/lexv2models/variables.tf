@@ -89,14 +89,30 @@ variable "polly_arn" {
   default     = null
 }
 
+variable "enable_cloudwatch_logging" {
+  description = <<-EOT
+    Whether to create IAM policies for CloudWatch logging.
+    When true, cloudwatch_log_group_arn must be provided.
+    
+    This flag prevents count/computed value errors.
+  EOT
+  type        = bool
+  default     = false
+}
+
 variable "cloudwatch_log_group_arn" {
   description = <<-EOT
     ARN of the CloudWatch Log Group to grant Lex conversation logging permissions.
-    When null, no CloudWatch IAM policy is created.
-    Pair with the cloudwatch-log-group module from this ecosystem.
+    When empty string or null, no CloudWatch IAM policy is created.
+    
+    Example: "arn:aws:logs:eu-west-1:123456789012:log-group:/aws/lex/my-bot"
   EOT
   type        = string
-  default     = null
+  default     = "" # Changed from null to empty string
+  validation {
+    condition     = !var.enable_cloudwatch_logging || length(var.cloudwatch_log_group_arn) > 0
+    error_message = "cloudwatch_log_group_arn must be provided when logging is enabled."
+  }
 }
 
 # ==============================================================================
