@@ -8,9 +8,233 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Lambda fulfillment module
 - Custom vocabulary support
 - Bot alias support (pending provider)
+
+---
+
+## [1.4.0] - 2025-04-11
+
+### Added
+- **Lambda Fulfillment Module**: Complete Lambda function management for Lex bot fulfillment
+  - New module: `modules/lambda-fulfillment/` - Standalone Lambda creation
+  - Automatic Lex invoke permissions via `aws_lambda_permission`
+  - Lambda versioning (published versions for Lex integration)
+  - VPC support for private resource access
+  - X-Ray tracing enabled by default
+  - Environment variables (global and per-function)
+  - IAM roles with CloudWatch Logs permissions
+  - Optional Lambda aliases for environment management
+  - Example: `examples/lex-with-lambda/` - Basic Lambda integration
+  - Example: `examples/lex-with-lambda-and-cloudwatch-logs/` - Complete production setup
+- **TFLint Integration**:
+  - Added `.tflint.hcl` configuration file
+  - AWS ruleset plugin (v0.47.0)
+  - GitHub Actions workflow for automated linting
+  - Local development validation support
+- **Python Lambda Examples**:
+  - `lambda/claims_handler/index.py` - Insurance claim processing
+  - `lambda/policy_lookup/index.py` - Policy information lookup
+  - Production-ready code patterns
+  - Local testing support
+- **Documentation**:
+  - Comprehensive Lambda fulfillment module README
+  - Complete example READMEs with architecture diagrams
+  - Lambda code structure and best practices
+  - Cost analysis for Lambda + Lex + CloudWatch
+  - Monitoring and troubleshooting guides
+  - TFLint usage documentation
+
+### Changed
+- `modules/lexv2models/variables.tf` - Added `lambda_functions` variable (new structure)
+- Root `main.tf`, `variables.tf` - Updated for Lambda integration support
+- Root `README.md` - Enhanced with Lambda section, complete production example
+- Updated roadmap and features list
+- GitHub Actions workflow updated with TFLint validation
+- Examples structure expanded to include Lambda patterns
+
+### Fixed
+- None - New feature release
+
+### Breaking Changes
+- None - Fully backwards compatible
+- Lambda integration is optional (default: no Lambda functions)
+- Existing configurations work without modification
+
+### Migration Notes
+
+No migration required. Lambda fulfillment is opt-in.
+
+**To add Lambda fulfillment:**
+
+```hcl
+# Step 1: Create Lambda functions
+module "lambda_fulfillment" {
+  source = "infrakraft/lexv2models/aws//modules/lambda-fulfillment"
+  version = "1.4.0"
+  
+  lambda_functions = {
+    my_handler = {
+      namespace    = "my-bot"
+      description  = "Fulfillment handler"
+      handler      = "index.handler"
+      runtime      = "python3.11"
+      timeout      = 30
+      memory_size  = 512
+      s3_bucket    = "my-lambda-bucket"
+      s3_key       = "handler.zip"
+    }
+  }
+}
+
+# Step 2: Connect to Lex bot
+module "lex_bot" {
+  source  = "infrakraft/lexv2models/aws"
+  version = "1.4.0"
+  
+  bot_config = {
+    # ... config with fulfillment_lambda_name ...
+  }
+  
+  # NEW: Provide Lambda ARNs
+  lambda_arns = module.lambda_fulfillment.lambda_qualified_arns
+}
+```
+
+### Technical Details
+
+#### Lambda Fulfillment Module
+
+**Inputs:**
+- `lambda_functions` - Map of Lambda configurations
+- `enable_lex_invocation` - Grant Lex invoke permission (default: true)
+- `global_environment_variables` - Global env vars for all functions
+- `vpc_config` - Optional VPC configuration
+- `create_aliases` - Create Lambda aliases (default: false)
+- `alias_name` - Alias name (default: "live")
+
+**Outputs:**
+- `lambda_function_arns` - Function ARNs
+- `lambda_function_names` - Function names
+- `lambda_qualified_arns` - **Versioned ARNs (use for Lex)**
+- `lambda_versions` - Published versions
+- `lambda_role_arns` - IAM role ARNs
+- `functions` - Complete function details
+
+**Features:**
+- Automatic `lexv2.amazonaws.com` invoke permissions
+- Published versions (required for Lex)
+- CloudWatch Logs permissions
+- Optional VPC access permissions
+- X-Ray tracing enabled
+- Lifecycle management (create_before_destroy)
+
+#### TFLint Integration
+
+**Configuration:**
+- AWS plugin enabled (v0.47.0)
+- Validates:
+  - AWS resource configurations
+  - Best practices
+  - Common mistakes
+  - Deprecated syntax
+
+**Usage:**
+```bash
+# Initialize
+tflint --init
+
+# Run linting
+tflint
+
+# Recursive (all modules)
+tflint --recursive
+```
+
+#### GitHub Actions
+
+**Added jobs:**
+- `tflint` - Validates all Terraform code
+- `validate-lambda` - Checks Python Lambda code (optional)
+
+**Workflow improvements:**
+- Multi-version Terraform testing (1.5.7, 1.9.8)
+- TFLint validation on all modules
+- Python syntax validation for Lambda functions
+
+### Lambda Function Structure
+
+The module expects Lambda deployment packages in S3:
+
+s3://my-bucket/
+├── claims_handler.zip
+│   └── index.py
+└── policy_lookup.zip
+└── index.py
+
+**Lambda Event Structure (Lex V2):**
+```python
+{
+  "sessionId": "...",
+  "inputTranscript": "...",
+  "interpretations": [...],
+  "sessionState": {
+    "intent": {
+      "name": "FileClaimIntent",
+      "slots": {
+        "PolicyNumber": {
+          "value": {
+            "interpretedValue": "ABC123"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**Lambda Response Structure:**
+```python
+{
+  "sessionState": {
+    "dialogAction": {
+      "type": "Close"  # or "Delegate", "ElicitIntent", "ElicitSlot"
+    },
+    "intent": {
+      "name": "FileClaimIntent",
+      "state": "Fulfilled"  # or "Failed", "ReadyForFulfillment"
+    }
+  },
+  "messages": [
+    {
+      "contentType": "PlainText",
+      "content": "Your claim has been submitted."
+    }
+  ]
+}
+```
+
+### Cost Impact
+
+**Lambda costs (per month):**
+- Free tier: 1M requests + 400,000 GB-seconds
+- Development (3K invocations): $0.00
+- Production (30K invocations): $0.80-4.00
+
+**Total with CloudWatch Logs:**
+- Development: $0.50-1.00/month
+- Production: $10-25/month
+
+### Examples Comparison
+
+| Feature | lex-only | lex-with-versioning | lex-with-building | lex-with-cloudwatch-logs | **lex-with-lambda** | **lex-with-lambda-and-cloudwatch-logs** |
+|---------|----------|---------------------|-------------------|--------------------------|---------------------|----------------------------------------|
+| Bot Creation | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Bot Versioning | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Auto Building | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| CloudWatch Logs | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| **Lambda Fulfillment** | ❌ | ❌ | ❌ | ❌ | **✅** | **✅** |
+| **Production Ready** | ❌ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | **✅** |
 
 ---
 
@@ -301,12 +525,13 @@ module "lex_bot" {
 
 ## Version Comparison
 
-| Version | Bot Versioning | Bot Building | CloudWatch Logs | Bot Aliases | Multi-Locale |
-|---------|----------------|--------------|-----------------|-------------|--------------|
-| 1.3.0   | ✅ Yes         | ✅ Yes       | ✅ Yes          | ❌ No       | ✅ Yes       |
-| 1.2.0   | ✅ Yes         | ✅ Yes       | ⚠️ Partial      | ❌ No       | ✅ Yes       |
-| 1.1.0   | ✅ Yes         | ❌ No        | ❌ No           | ❌ No       | ✅ Yes       |
-| 1.0.0   | ❌ No          | ❌ No        | ❌ No           | ❌ No       | ✅ Yes       |
+| Version | Lambda Fulfillment | CloudWatch Logs | Bot Building | Bot Versioning | TFLint |
+|---------|-------------------|-----------------|--------------|----------------|--------|
+| 1.4.0   | ✅ Yes            | ✅ Yes          | ✅ Yes       | ✅ Yes         | ✅ Yes |
+| 1.3.0   | ❌ No             | ✅ Yes          | ✅ Yes       | ✅ Yes         | ❌ No  |
+| 1.2.0   | ❌ No             | ⚠️ Partial      | ✅ Yes       | ✅ Yes         | ❌ No  |
+| 1.1.0   | ❌ No             | ❌ No           | ❌ No        | ✅ Yes         | ❌ No  |
+| 1.0.0   | ❌ No             | ❌ No           | ❌ No        | ❌ No          | ❌ No  |
 
 ---
 
@@ -395,7 +620,8 @@ terraform apply
 - **Issues**: [github.com/infrakraft/terraform-aws-lexv2models/issues](https://github.com/infrakraft/terraform-aws-lexv2models/issues)
 - **Discussions**: [github.com/infrakraft/terraform-aws-lexv2models/discussions](https://github.com/infrakraft/terraform-aws-lexv2models/discussions)
 
-[Unreleased]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/infrakraft/terraform-aws-lexv2models/compare/v1.0.0...v1.1.0

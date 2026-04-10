@@ -1,4 +1,4 @@
-name: Terraform validate
+name: Terraform Validate and Lint
 
 on:
   pull_request:
@@ -7,18 +7,51 @@ on:
     branches: [main]
 
 jobs:
+  tflint:
+    name: TFLint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: Show TFLint version
+        run: tflint --version
+
+      - name: Init TFLint
+        run: tflint --init
+
+      - name: Run TFLint (root)
+        run: tflint --format compact
+
+      - name: Run TFLint (modules)
+        run: |
+          for dir in modules/*/; do
+            echo "Linting $dir"
+            (cd "$dir" && tflint --format compact)
+          done
+
   validate:
-    name: fmt + validate
+    name: Terraform Validate
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        terraform_version: ["1.5.7", "1.9.8"]  # Test multiple versions
+        terraform_version: ["1.5.7", "1.9.8"]
         module:
           - "."
           - modules/lexv2models
+          - modules/cloudwatch-logs
+          - modules/lambda-fulfillment
           - examples/lex-only
           - examples/lex-with-versioning
+          - examples/lex-with-building
+          - examples/lex-with-cloudwatch-logs
+          - examples/lex-with-lambda
+          - examples/lex-with-lambda-and-cloudwatch-logs
 
     steps:
       - uses: actions/checkout@v4
@@ -27,14 +60,48 @@ jobs:
         with:
           terraform_version: ${{ matrix.terraform_version }}
 
-      - name: terraform fmt check
+      - name: Terraform fmt check
         run: terraform fmt -check -recursive
         working-directory: ${{ matrix.module }}
 
-      - name: terraform init
+      - name: Terraform init
         run: terraform init -backend=false
         working-directory: ${{ matrix.module }}
 
-      - name: terraform validate
+      - name: Terraform validate
         run: terraform validate
         working-directory: ${{ matrix.module }}
+
+  validate-lambda:
+    name: Validate Lambda Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check Python syntax (claims_handler)
+        run: |
+          if [ -f examples/lex-with-lambda/lambda/claims_handler/index.py ]; then
+            python -m py_compile examples/lex-with-lambda/lambda/claims_handler/index.py
+            echo "✓ claims_handler syntax valid"
+          fi
+
+      - name: Check Python syntax (policy_lookup)
+        run: |
+          if [ -f examples/lex-with-lambda/lambda/policy_lookup/index.py ]; then
+            python -m py_compile examples/lex-with-lambda/lambda/policy_lookup/index.py
+            echo "✓ policy_lookup syntax valid"
+          fi
+
+      - name: Run basic Lambda tests
+        run: |
+          if [ -f examples/lex-with-lambda/lambda/claims_handler/index.py ]; then
+            cd examples/lex-with-lambda/lambda/claims_handler
+            python index.py
+            echo "✓ claims_handler execution test passed"
+          fi

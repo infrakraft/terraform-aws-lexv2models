@@ -30,41 +30,6 @@ variable "lexv2_bot_role_name" {
   }
 }
 
-# ==============================================================================
-# Optional — Lambda integration
-# ==============================================================================
-
-variable "lambda_functions" {
-  description = <<-EOT
-    Map of deployed Lambda functions keyed by the logical name used as
-    fulfillment_lambda_name in bot_config. Each entry provides the function_name
-    and ARN needed to wire fulfillment hooks and grant invoke permissions.
-
-    Example:
-      lambda_functions = {
-        "MyFulfillmentFn" = {
-          function_name = "my-fulfilment-fn"
-          arn           = "arn:aws:lambda:eu-west-1:123456789012:function:my-fulfilment-fn"
-        }
-      }
-  EOT
-  type = map(object({
-    function_name = string
-    arn           = string
-  }))
-  default = {}
-}
-
-variable "lambda_arns" {
-  description = <<-EOT
-    Alternative to lambda_functions: a simple map of logical name → ARN.
-    Merged with lambda_functions (this map wins on key overlap). Useful when
-    you only have ARNs and not the full function object.
-  EOT
-  type        = map(string)
-  default     = {}
-}
-
 variable "lex_bot_alias_id" {
   description = <<-EOT
     Lex V2 bot alias ID used to scope aws_lambda_permission source_arn.
@@ -222,4 +187,39 @@ variable "build_timeout_seconds" {
     condition     = var.build_timeout_seconds >= 30 && var.build_timeout_seconds <= 1800
     error_message = "Build timeout must be between 30 and 1800 seconds (30 minutes)."
   }
+}
+
+# ============================================================================
+# Lambda Integration (v1.4.0)
+# ============================================================================
+
+variable "lambda_functions" {
+  description = <<-EOT
+    Map of Lambda functions available for Lex bot fulfillment.
+    Typically comes from the lambda-fulfillment module output.
+    
+    Example:
+    {
+      "claims_handler" = {
+        function_name = "claims_handler"
+        arn           = "arn:aws:lambda:..."
+        qualified_arn = "arn:aws:lambda:...:1"
+      }
+    }
+  EOT
+  type = map(object({
+    function_name = string
+    arn           = string
+    qualified_arn = optional(string)
+  }))
+  default = {}
+}
+
+variable "lambda_arns" {
+  description = <<-EOT
+    DEPRECATED: Use lambda_functions instead.
+    Map of Lambda function names to ARNs.
+  EOT
+  type        = map(string)
+  default     = {}
 }

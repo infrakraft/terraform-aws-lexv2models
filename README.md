@@ -2,27 +2,29 @@
 
 [![Terraform Registry](https://img.shields.io/badge/Terraform-Registry-623CE4?logo=terraform)](https://registry.terraform.io/modules/infrakraft/lexv2models/aws/latest)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![TFLint](https://img.shields.io/badge/TFLint-Enabled-blue)](https://github.com/terraform-linters/tflint)
 
-A comprehensive Terraform module for creating and managing AWS Lex V2 bots with support for versioning, automatic building, and CloudWatch logging.
+A comprehensive Terraform module for creating and managing AWS Lex V2 bots with support for Lambda fulfillment, versioning, automatic building, and CloudWatch logging.
 
 ## Features
 
 - ✅ **Full Lex V2 Bot Management** - Create and configure bots with JSON-based configuration
+- ✅ **Lambda Fulfillment** - Modular Lambda function creation for bot fulfillment (v1.4.0)
 - ✅ **CloudWatch Logging** - Modular log group creation for conversation monitoring (v1.3.0)
 - ✅ **Automatic Bot Building** - Build bots automatically after deployment (v1.2.0)
 - ✅ **Bot Versioning** - Create immutable snapshots for production deployments (v1.1.0)
 - ✅ **Slot Priority Configuration** - Set elicitation order for intent slots
 - ✅ **Multi-Locale Support** - Configure multiple languages and locales
-- ✅ **Lambda Integration** - Connect fulfillment and validation code hooks
 - ✅ **IAM Role Management** - Automatic IAM role creation with proper permissions
 - ✅ **Polly Integration** - Voice settings with Amazon Polly
+- ✅ **TFLint Validated** - Code quality and best practices enforced
 
 ## Quick Start
 
 ```hcl
 module "lex_bot" {
   source  = "infrakraft/lexv2models/aws"
-  version = "1.3.0"
+  version = "1.4.0"
 
   lexv2_bot_role_name = "my-bot-role"
   
@@ -54,6 +56,73 @@ module "lex_bot" {
 }
 ```
 
+## Lambda Fulfillment (v1.4.0)
+
+Connect Lambda functions to your Lex bot for business logic, validation, and fulfillment.
+
+### Modular Approach
+
+```hcl
+# Create Lambda functions
+module "lambda_fulfillment" {
+  source = "infrakraft/lexv2models/aws//modules/lambda-fulfillment"
+  version = "1.4.0"
+  
+  lambda_functions = {
+    order_handler = {
+      namespace    = "my-bot"
+      description  = "Handles order processing"
+      handler      = "index.handler"
+      runtime      = "python3.11"
+      timeout      = 30
+      memory_size  = 512
+      s3_bucket    = "my-lambda-bucket"
+      s3_key       = "order_handler.zip"
+      
+      environment_variables = {
+        TABLE_NAME = "orders"
+      }
+    }
+  }
+  
+  enable_lex_invocation = true
+}
+
+# Connect to Lex bot
+module "lex_bot" {
+  source  = "infrakraft/lexv2models/aws"
+  version = "1.4.0"
+  
+  bot_config = {
+    # ... configuration
+    locales = {
+      en_US = {
+        intents = {
+          PlaceOrder = {
+            fulfillment_lambda_name = "order_handler"
+            fulfillment_code_hook = { enabled = true }
+          }
+        }
+      }
+    }
+  }
+  
+  # Provide Lambda ARNs
+  lambda_arns = module.lambda_fulfillment.lambda_qualified_arns
+}
+```
+
+### Features
+
+- **Automatic Lex permissions** - Lambda invoke permissions created automatically
+- **Versioning** - Published versions for stable deployments
+- **CloudWatch integration** - Automatic logging setup
+- **VPC support** - Optional VPC configuration
+- **X-Ray tracing** - Built-in distributed tracing
+- **Environment variables** - Global and per-function configuration
+
+See the [Lambda fulfillment example](./examples/lex-with-lambda) for complete implementation.
+
 ## CloudWatch Logging (v1.3.0)
 
 Monitor and debug your bot conversations with integrated CloudWatch Logs.
@@ -64,7 +133,7 @@ Monitor and debug your bot conversations with integrated CloudWatch Logs.
 # Create CloudWatch log group
 module "cloudwatch_logs" {
   source = "infrakraft/lexv2models/aws//modules/cloudwatch-logs"
-  version = "1.3.0"
+  version = "1.4.0"
   
   name              = "/aws/lex/MyBot"
   retention_in_days = 7                    # Dev: 7, Prod: 365
@@ -79,7 +148,7 @@ module "cloudwatch_logs" {
 # Create bot with logging enabled
 module "lex_bot" {
   source  = "infrakraft/lexv2models/aws"
-  version = "1.3.0"
+  version = "1.4.0"
   
   bot_config = { ... }
   
@@ -121,7 +190,7 @@ With automatic building:
 ```hcl
 module "lex_bot" {
   source  = "infrakraft/lexv2models/aws"
-  version = "1.3.0"
+  version = "1.4.0"
 
   lexv2_bot_role_name = "my-lex-bot-role"
   
@@ -165,7 +234,7 @@ Create immutable snapshots of your bot configuration for production deployments 
 ```hcl
 module "lex_bot" {
   source  = "infrakraft/lexv2models/aws"
-  version = "1.3.0"
+  version = "1.4.0"
 
   bot_config = { ... }
   
@@ -191,59 +260,102 @@ Complete working examples are available in the [examples](./examples) directory:
 - **[lex-with-versioning](./examples/lex-with-versioning)** - Bot with version snapshots (v1.1.0)
 - **[lex-with-building](./examples/lex-with-building)** - Bot with automatic building (v1.2.0)
 - **[lex-with-cloudwatch-logs](./examples/lex-with-cloudwatch-logs)** - Bot with conversation logging (v1.3.0)
+- **[lex-with-lambda](./examples/lex-with-lambda)** - Bot with Lambda fulfillment (v1.4.0)
+- **[lex-with-lambda-and-cloudwatch-logs](./examples/lex-with-lambda-and-cloudwatch-logs)** - Complete production setup (v1.4.0)
 
-## Usage Patterns
-
-### Development Environment
-
-```hcl
-module "lex_bot" {
-  source = "infrakraft/lexv2models/aws"
-  version = "1.3.0"
-  
-  bot_config = { ... }
-  
-  # Fast iterations
-  auto_build_bot_locales    = true
-  wait_for_build_completion = false
-  
-  # Short log retention
-  enable_cloudwatch_logging = true
-  cloudwatch_log_group_arn  = module.logs.cloudwatch_log_group_arn  # 7 days retention
-}
-```
-
-### Production Environment
+## Complete Production Example
 
 ```hcl
-module "cloudwatch_logs" {
+# CloudWatch logs for Lex conversations
+module "lex_logs" {
   source = "infrakraft/lexv2models/aws//modules/cloudwatch-logs"
-  version = "1.3.0"
+  version = "1.4.0"
   
-  name            = "/aws/lex/ProductionBot"
-  retention_in_days = 365          # 1 year retention
-  prevent_destroy = true           # Protect logs
-  kms_key_id      = aws_kms_key.prod.arn
+  name              = "/aws/lex/ProductionBot"
+  retention_in_days = 365
+  prevent_destroy   = true
+  kms_key_id        = aws_kms_key.logs.arn
 }
 
+# CloudWatch logs for Lambda functions
+module "lambda_logs" {
+  source   = "infrakraft/lexv2models/aws//modules/cloudwatch-logs"
+  version  = "1.4.0"
+  for_each = { order_handler = true, inventory_check = true }
+  
+  name              = "/aws/lambda/${each.key}"
+  retention_in_days = 365
+  prevent_destroy   = true
+}
+
+# Lambda functions for fulfillment
+module "lambda_fulfillment" {
+  source = "infrakraft/lexv2models/aws//modules/lambda-fulfillment"
+  version = "1.4.0"
+  
+  lambda_functions = {
+    order_handler = {
+      namespace    = "production-bot"
+      description  = "Handles order processing"
+      handler      = "index.handler"
+      runtime      = "python3.11"
+      timeout      = 30
+      memory_size  = 512
+      s3_bucket    = "lambda-artifacts"
+      s3_key       = "order_handler.zip"
+    }
+    inventory_check = {
+      namespace    = "production-bot"
+      description  = "Checks inventory availability"
+      handler      = "index.handler"
+      runtime      = "python3.11"
+      timeout      = 10
+      memory_size  = 256
+      s3_bucket    = "lambda-artifacts"
+      s3_key       = "inventory_check.zip"
+    }
+  }
+  
+  enable_lex_invocation = true
+  
+  global_environment_variables = {
+    ENVIRONMENT = "production"
+    LOG_LEVEL   = "INFO"
+  }
+}
+
+# Lex bot with all features
 module "lex_bot" {
   source = "infrakraft/lexv2models/aws"
-  version = "1.3.0"
+  version = "1.4.0"
   
-  bot_config = { ... }
+  bot_config          = local.bot_config
+  lexv2_bot_role_name = "production-bot-role"
   
-  # Ensure bot is ready
+  # Lambda integration
+  lambda_arns = module.lambda_fulfillment.lambda_qualified_arns
+  
+  # CloudWatch logging
+  enable_cloudwatch_logging = true
+  cloudwatch_log_group_arn  = module.lex_logs.cloudwatch_log_group_arn
+  
+  # Bot building
   auto_build_bot_locales    = true
   wait_for_build_completion = true
   build_timeout_seconds     = 600
   
-  # Create version snapshot
-  create_bot_version        = true
-  bot_version_description   = "v1.0 - Production release"
+  # Bot versioning
+  create_bot_version      = true
+  bot_version_description = "v1.0 - Production release"
   
-  # Enable logging
-  enable_cloudwatch_logging = true
-  cloudwatch_log_group_arn  = module.cloudwatch_logs.cloudwatch_log_group_arn
+  tags = {
+    Environment = "production"
+  }
+  
+  depends_on = [
+    module.lambda_fulfillment,
+    module.lex_logs
+  ]
 }
 ```
 
@@ -267,6 +379,7 @@ module "lex_bot" {
 | Name | Source | Description |
 |------|--------|-------------|
 | cloudwatch-logs | ./modules/cloudwatch-logs | CloudWatch log group creation (optional) |
+| lambda-fulfillment | ./modules/lambda-fulfillment | Lambda function creation for Lex (optional) |
 | lexv2models | ./modules/lexv2models | Core Lex V2 bot resources |
 
 ## Resources
@@ -279,6 +392,8 @@ Core resources created by this module:
 - `aws_lexv2models_slot_type`
 - `aws_lexv2models_bot_version` (optional, v1.1.0)
 - `aws_cloudwatch_log_group` (optional, v1.3.0)
+- `aws_lambda_function` (optional, v1.4.0)
+- `aws_lambda_permission` (optional, v1.4.0)
 - `aws_iam_role`
 - `aws_iam_policy`
 - `null_resource` (for slot priorities and bot building)
@@ -289,6 +404,7 @@ Core resources created by this module:
 |------|-------------|------|---------|:--------:|
 | bot_config | Complete bot configuration object | `any` | n/a | yes |
 | lexv2_bot_role_name | Name for the IAM role used by Lex | `string` | n/a | yes |
+| lambda_arns | Map of Lambda function names to qualified ARNs | `map(string)` | `{}` | no |
 | auto_build_bot_locales | Automatically build bot locales after deployment | `bool` | `true` | no |
 | wait_for_build_completion | Wait for bot build to complete | `bool` | `false` | no |
 | build_timeout_seconds | Maximum time to wait for build completion | `number` | `300` | no |
@@ -311,6 +427,27 @@ Core resources created by this module:
 | intent_ids | Map of intent names to their IDs |
 | slot_ids | Map of slot names to their IDs |
 
+## Code Quality
+
+This module is validated with:
+- ✅ **terraform fmt** - Code formatting
+- ✅ **terraform validate** - Configuration validation
+- ✅ **TFLint** - Best practices and AWS-specific rules
+- ✅ **Automated testing** - GitHub Actions CI/CD
+
+Run locally:
+```bash
+# Format code
+terraform fmt -recursive
+
+# Validate configuration
+terraform validate
+
+# Run TFLint
+tflint --init
+tflint
+```
+
 ## Known Limitations
 
 - **jq Dependency**: The module requires `jq` to be installed for slot priority management
@@ -323,7 +460,7 @@ Core resources created by this module:
 - [x] Bot versioning support (v1.1.0) ✅
 - [x] Automatic bot building (v1.2.0) ✅
 - [x] CloudWatch logging module (v1.3.0) ✅
-- [ ] Lambda fulfillment module (v1.4.0)
+- [x] Lambda fulfillment module (v1.4.0) ✅
 - [ ] Custom vocabulary support (v1.5.0)
 - [ ] Bot alias support (v1.6.0) - Pending Terraform provider
 - [ ] Replace jq dependency with native Terraform (v2.0.0)

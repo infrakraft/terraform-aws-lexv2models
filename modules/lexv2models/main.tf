@@ -109,37 +109,217 @@ resource "aws_lexv2models_intent" "intents" {
   }
 
   # ----------------------------------------------------------------------------
-  # Fulfillment code hook
-  # Enabled only when the intent names a Lambda that exists in
-  # lambda_arns_effective. The nested ternary avoids passing null into
-  # contains(), which would cause a type error at plan time.
+  # Dialog code hook (initial response)
+  # Runs BEFORE slot elicitation for validation and initialization
   # ----------------------------------------------------------------------------
 
-  dynamic "fulfillment_code_hook" {
+  dynamic "dialog_code_hook" {
     for_each = (
-      each.value.fulfillment_lambda_name != null
-      ? (contains(keys(local.lambda_arns_effective), each.value.fulfillment_lambda_name) ? [1] : [])
-      : []
-    )
+      lookup(each.value, "dialog_code_hook", null) != null &&
+      lookup(each.value.dialog_code_hook, "enabled", false) == true &&
+      each.value.fulfillment_lambda_name != null &&
+      contains(keys(local.lambda_arns_effective), each.value.fulfillment_lambda_name)
+    ) ? [1] : []
+
     content {
       enabled = true
     }
   }
 
   # ----------------------------------------------------------------------------
-  # Initial response code hook — same guard as fulfillment_code_hook
+  # Initial response setting
+  # Only created when dialog_code_hook is enabled
   # ----------------------------------------------------------------------------
 
   dynamic "initial_response_setting" {
     for_each = (
-      each.value.fulfillment_lambda_name != null
-      ? (contains(keys(local.lambda_arns_effective), each.value.fulfillment_lambda_name) ? [1] : [])
-      : []
-    )
+      lookup(each.value, "dialog_code_hook", null) != null &&
+      lookup(each.value.dialog_code_hook, "enabled", false) == true &&
+      each.value.fulfillment_lambda_name != null &&
+      contains(keys(local.lambda_arns_effective), each.value.fulfillment_lambda_name)
+    ) ? [1] : []
+
     content {
+      # Initial response messages (optional)
+      dynamic "initial_response" {
+        for_each = lookup(each.value, "initial_response", null) != null ? [each.value.initial_response] : []
+
+        content {
+          message_group {
+            message {
+              plain_text_message {
+                value = initial_response.value.message
+              }
+            }
+
+            dynamic "variation" {
+              for_each = lookup(initial_response.value, "variations", [])
+              content {
+                plain_text_message {
+                  value = variation.value
+                }
+              }
+            }
+          }
+        }
+      }
+
+      # Code hook configuration
       code_hook {
         active                      = true
         enable_code_hook_invocation = true
+        invocation_label            = lookup(each.value, "dialog_invocation_label", null)
+
+        # Post code hook specification (REQUIRED by AWS API)
+        post_code_hook_specification {
+          # Success response
+          success_response {
+            allow_interrupt = true
+
+            dynamic "message_group" {
+              for_each = (
+                lookup(each.value, "dialog_success_response", null) != null
+                ? [each.value.dialog_success_response]
+                : []
+              )
+
+              content {
+                message {
+                  plain_text_message {
+                    value = message_group.value.message
+                  }
+                }
+
+                dynamic "variation" {
+                  for_each = lookup(message_group.value, "variations", [])
+                  content {
+                    plain_text_message {
+                      value = variation.value
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          # Failure response
+          failure_response {
+            allow_interrupt = true
+
+            dynamic "message_group" {
+              for_each = (
+                lookup(each.value, "dialog_failure_response", null) != null
+                ? [each.value.dialog_failure_response]
+                : []
+              )
+
+              content {
+                message {
+                  plain_text_message {
+                    value = message_group.value.message
+                  }
+                }
+
+                dynamic "variation" {
+                  for_each = lookup(message_group.value, "variations", [])
+                  content {
+                    plain_text_message {
+                      value = variation.value
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          # Timeout response
+          timeout_response {
+            allow_interrupt = true
+
+            dynamic "message_group" {
+              for_each = (
+                lookup(each.value, "dialog_timeout_response", null) != null
+                ? [each.value.dialog_timeout_response]
+                : []
+              )
+
+              content {
+                message {
+                  plain_text_message {
+                    value = message_group.value.message
+                  }
+                }
+
+                dynamic "variation" {
+                  for_each = lookup(message_group.value, "variations", [])
+                  content {
+                    plain_text_message {
+                      value = variation.value
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  # ----------------------------------------------------------------------------
+  # Fulfillment code hook
+  # Runs AFTER all slots are filled for final processing
+  # ----------------------------------------------------------------------------
+
+  dynamic "fulfillment_code_hook" {
+    for_each = (
+      lookup(each.value, "fulfillment_code_hook", null) != null &&
+      lookup(each.value.fulfillment_code_hook, "enabled", false) == true &&
+      each.value.fulfillment_lambda_name != null &&
+      contains(keys(local.lambda_arns_effective), each.value.fulfillment_lambda_name)
+    ) ? [1] : []
+
+    content {
+      enabled = true
+
+      # Post-fulfillment status specification (optional)
+      dynamic "post_fulfillment_status_specification" {
+        for_each = lookup(each.value, "fulfillment_response", null) != null ? [1] : []
+
+        content {
+          success_response {
+            allow_interrupt = true
+
+            dynamic "message_group" {
+              for_each = lookup(each.value, "fulfillment_response", null) != null ? [each.value.fulfillment_response] : []
+
+              content {
+                message {
+                  plain_text_message {
+                    value = message_group.value.message
+                  }
+                }
+
+                dynamic "variation" {
+                  for_each = lookup(message_group.value, "variations", [])
+                  content {
+                    plain_text_message {
+                      value = variation.value
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          failure_response {
+            allow_interrupt = true
+          }
+
+          timeout_response {
+            allow_interrupt = true
+          }
+        }
       }
     }
   }
