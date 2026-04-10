@@ -55,6 +55,13 @@ module "lambda_fulfillment" {
   # Enable Lex to invoke these functions
   enable_lex_invocation = true
 
+  # X-Ray tracing (disabled by default to save costs)
+  # Enable for production observability if needed
+  enable_xray_tracing = var.enable_xray_tracing
+
+  # Publish versions (required for Lex)
+  publish_lambda_versions = true
+
   # Global environment variables
   global_environment_variables = {
     ENVIRONMENT = var.environment

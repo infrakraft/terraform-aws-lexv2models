@@ -92,6 +92,36 @@ variable "vpc_config" {
 }
 
 # ============================================================================
+# X-Ray Tracing (NEW - Configurable)
+# ============================================================================
+
+variable "enable_xray_tracing" {
+  description = <<-EOT
+    Enable AWS X-Ray tracing for Lambda functions.
+    
+    When enabled:
+    - Provides distributed tracing across services
+    - Helps debug performance issues
+    - Visualize request flows
+    - **Cost:** ~$5 per million traces + $0.50 per million traces retrieved
+    
+    When disabled:
+    - Lower cost
+    - Less observability
+    - Use CloudWatch Logs only
+    
+    Recommendation:
+    - Development: false (save cost)
+    - Staging: true (testing)
+    - Production: true (observability) or false (cost-sensitive)
+  EOT
+  type        = bool
+  default     = false
+
+  # Changed from true to false to save costs by default
+}
+
+# ============================================================================
 # Lex Integration
 # ============================================================================
 
@@ -131,4 +161,131 @@ variable "tags" {
   description = "Tags to apply to all Lambda resources"
   type        = map(string)
   default     = {}
+}
+
+# ============================================================================
+# Lambda Publishing (NEW - Configurable)
+# ============================================================================
+
+variable "publish_lambda_versions" {
+  description = <<-EOT
+    Whether to publish Lambda function versions.
+    
+    **Required for Lex integration** - Lex needs versioned (qualified) ARNs.
+    
+    When true:
+    - Creates numbered versions ($LATEST, 1, 2, 3...)
+    - Enables aliases
+    - Required for Lex bot integration
+    
+    When false:
+    - Only $LATEST version exists
+    - Cannot use with Lex (Lex requires qualified ARNs)
+    - Slightly faster deployments
+    
+    **Must be true** if using with Lex bots.
+  EOT
+  type        = bool
+  default     = true
+}
+
+# ============================================================================
+# Dead Letter Queue (NEW - Optional)
+# ============================================================================
+
+variable "dead_letter_config" {
+  description = <<-EOT
+    Dead Letter Queue configuration for failed Lambda invocations.
+    
+    Example:
+    {
+      target_arn = aws_sqs_queue.dlq.arn
+    }
+  EOT
+
+  type = object({
+    target_arn = string
+  })
+
+  default = null
+}
+
+# ============================================================================
+# Ephemeral Storage (NEW - Optional)
+# ============================================================================
+
+variable "ephemeral_storage_size" {
+  description = <<-EOT
+    Size of Lambda's /tmp directory in MB.
+    
+    Default: 512 MB (included in pricing)
+    Maximum: 10240 MB (10 GB)
+    
+    Additional cost: $0.0000000309 per GB-second above 512 MB
+    
+    Use when:
+    - Processing large files
+    - Need temporary storage
+    - Extracting archives
+  EOT
+
+  type    = number
+  default = null
+
+  validation {
+    condition     = var.ephemeral_storage_size == null || (var.ephemeral_storage_size >= 512 && var.ephemeral_storage_size <= 10240)
+    error_message = "Ephemeral storage must be between 512 and 10240 MB."
+  }
+}
+
+# ============================================================================
+# File System Config (NEW - Optional EFS)
+# ============================================================================
+
+variable "file_system_config" {
+  description = <<-EOT
+    EFS file system configuration for Lambda.
+    
+    Example:
+    {
+      arn              = aws_efs_access_point.lambda.arn
+      local_mount_path = "/mnt/efs"
+    }
+    
+    Requires:
+    - VPC configuration
+    - EFS file system in same VPC
+  EOT
+
+  type = object({
+    arn              = string
+    local_mount_path = string
+  })
+
+  default = null
+}
+
+# ============================================================================
+# Image Config (NEW - Optional for Container Images)
+# ============================================================================
+
+variable "image_config" {
+  description = <<-EOT
+    Configuration for Lambda functions using container images.
+    
+    Example:
+    {
+      command           = ["/app/handler"]
+      entry_point       = ["/usr/bin/python"]
+      working_directory = "/app"
+    }
+  EOT
+
+  type = object({
+    command           = optional(list(string))
+    entry_point       = optional(list(string))
+    working_directory = optional(string)
+  })
+
+  default = null
 }

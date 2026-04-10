@@ -60,7 +60,7 @@ module "lex_bot" {
 
 Connect Lambda functions to your Lex bot for business logic, validation, and fulfillment.
 
-### Modular Approach
+### Quick Example
 
 ```hcl
 # Create Lambda functions
@@ -85,7 +85,11 @@ module "lambda_fulfillment" {
     }
   }
   
+  # Lex integration
   enable_lex_invocation = true
+  
+  # X-Ray tracing (disabled by default to save costs)
+  enable_xray_tracing = false  # Set true for production observability
 }
 
 # Connect to Lex bot
@@ -100,7 +104,7 @@ module "lex_bot" {
         intents = {
           PlaceOrder = {
             fulfillment_lambda_name = "order_handler"
-            fulfillment_code_hook = { enabled = true }
+            fulfillment_code_hook   = { enabled = true }
           }
         }
       }
@@ -112,14 +116,127 @@ module "lex_bot" {
 }
 ```
 
-### Features
+### Key Features
 
-- **Automatic Lex permissions** - Lambda invoke permissions created automatically
-- **Versioning** - Published versions for stable deployments
-- **CloudWatch integration** - Automatic logging setup
-- **VPC support** - Optional VPC configuration
-- **X-Ray tracing** - Built-in distributed tracing
-- **Environment variables** - Global and per-function configuration
+#### Automatic Lex Integration
+- ✅ **Invoke permissions** - Automatically grants Lex permission to invoke Lambda
+- ✅ **Versioned ARNs** - Uses qualified ARNs (required for Lex)
+- ✅ **Multiple functions** - Support for multiple Lambda handlers
+
+#### Production Ready
+- ✅ **VPC support** - Access private resources (RDS, ElastiCache)
+- ✅ **X-Ray tracing** - Built-in distributed tracing (configurable)
+- ✅ **CloudWatch Logs** - Automatic logging permissions
+- ✅ **IAM roles** - Automatic role creation with least privilege
+
+#### Cost Optimization
+- ✅ **X-Ray configurable** - Disabled by default (saves ~$5-10/month)
+- ✅ **Ephemeral storage** - Configurable /tmp size (512 MB - 10 GB)
+- ✅ **Dead Letter Queue** - Optional failed invocation handling
+- ✅ **Lambda versioning** - Configurable (default: enabled for Lex)
+
+### X-Ray Tracing Configuration
+
+**Important:** X-Ray can add ~$5-10/month cost. It's disabled by default.
+
+#### When to Enable X-Ray
+
+**Enable (true) when:**
+- 🔍 Debugging complex distributed systems
+- 📊 Need request flow visualization
+- 🏢 Production observability requirements
+- ✅ Compliance mandates distributed tracing
+
+**Disable (false) when:**
+- 💰 Cost-sensitive applications
+- 🧪 Development/testing environments
+- 📝 CloudWatch Logs sufficient
+- 🎯 Simple Lambda functions
+
+#### Configuration Examples
+
+**Development (Cost-Optimized):**
+```hcl
+module "lambda_fulfillment" {
+  source = "infrakraft/lexv2models/aws//modules/lambda-fulfillment"
+  version = "1.4.0"
+  
+  lambda_functions = { ... }
+  
+  enable_xray_tracing = false  # Save costs
+}
+```
+
+**Production (Observability):**
+```hcl
+module "lambda_fulfillment" {
+  source = "infrakraft/lexv2models/aws//modules/lambda-fulfillment"
+  version = "1.4.0"
+  
+  lambda_functions = { ... }
+  
+  enable_xray_tracing = true  # Full distributed tracing
+}
+```
+
+### Advanced Configuration
+
+#### Dead Letter Queue
+
+Capture failed invocations:
+
+```hcl
+resource "aws_sqs_queue" "lambda_dlq" {
+  name = "lambda-dlq"
+}
+
+module "lambda_fulfillment" {
+  source = "infrakraft/lexv2models/aws//modules/lambda-fulfillment"
+  version = "1.4.0"
+  
+  lambda_functions = { ... }
+  
+  dead_letter_config = {
+    target_arn = aws_sqs_queue.lambda_dlq.arn
+  }
+}
+```
+
+#### Ephemeral Storage
+
+Increase /tmp storage for large file processing:
+
+```hcl
+module "lambda_fulfillment" {
+  source = "infrakraft/lexv2models/aws//modules/lambda-fulfillment"
+  version = "1.4.0"
+  
+  lambda_functions = { ... }
+  
+  # Increase from default 512 MB to 2 GB
+  ephemeral_storage_size = 2048
+}
+```
+
+**Cost:** $0.0000000309 per GB-second above 512 MB
+
+#### VPC Configuration
+
+Access private resources:
+
+```hcl
+module "lambda_fulfillment" {
+  source = "infrakraft/lexv2models/aws//modules/lambda-fulfillment"
+  version = "1.4.0"
+  
+  lambda_functions = { ... }
+  
+  vpc_config = {
+    subnet_ids         = ["subnet-abc123", "subnet-def456"]
+    security_group_ids = ["sg-xyz789"]
+  }
+}
+```
 
 See the [Lambda fulfillment example](./examples/lex-with-lambda) for complete implementation.
 
@@ -265,7 +382,14 @@ Complete working examples are available in the [examples](./examples) directory:
 
 ## Complete Production Example
 
+Full-stack deployment with all features enabled:
+
 ```hcl
+# S3 bucket for Lambda deployment packages
+resource "aws_s3_bucket" "lambda_artifacts" {
+  bucket = "my-lambda-artifacts"
+}
+
 # CloudWatch logs for Lex conversations
 module "lex_logs" {
   source = "infrakraft/lexv2models/aws//modules/cloudwatch-logs"
@@ -286,6 +410,7 @@ module "lambda_logs" {
   name              = "/aws/lambda/${each.key}"
   retention_in_days = 365
   prevent_destroy   = true
+  kms_key_id        = aws_kms_key.logs.arn
 }
 
 # Lambda functions for fulfillment
@@ -301,7 +426,7 @@ module "lambda_fulfillment" {
       runtime      = "python3.11"
       timeout      = 30
       memory_size  = 512
-      s3_bucket    = "lambda-artifacts"
+      s3_bucket    = aws_s3_bucket.lambda_artifacts.id
       s3_key       = "order_handler.zip"
     }
     inventory_check = {
@@ -311,16 +436,38 @@ module "lambda_fulfillment" {
       runtime      = "python3.11"
       timeout      = 10
       memory_size  = 256
-      s3_bucket    = "lambda-artifacts"
+      s3_bucket    = aws_s3_bucket.lambda_artifacts.id
       s3_key       = "inventory_check.zip"
     }
   }
   
   enable_lex_invocation = true
   
+  # X-Ray tracing (enable for production observability)
+  enable_xray_tracing = true  # ~$5-10/month additional cost
+  
+  # Publish versions (required for Lex)
+  publish_lambda_versions = true
+  
+  # Global environment variables
   global_environment_variables = {
     ENVIRONMENT = "production"
     LOG_LEVEL   = "INFO"
+  }
+  
+  # VPC configuration (for RDS/ElastiCache access)
+  vpc_config = {
+    subnet_ids         = ["subnet-abc123", "subnet-def456"]
+    security_group_ids = ["sg-xyz789"]
+  }
+  
+  # Dead Letter Queue
+  dead_letter_config = {
+    target_arn = aws_sqs_queue.lambda_dlq.arn
+  }
+  
+  tags = {
+    Environment = "production"
   }
 }
 
@@ -354,9 +501,27 @@ module "lex_bot" {
   
   depends_on = [
     module.lambda_fulfillment,
-    module.lex_logs
+    module.lex_logs,
+    module.lambda_logs
   ]
 }
+```
+
+### Cost Breakdown (Monthly)
+
+**Development Environment:**
+- Lex: $0 (free tier)
+- Lambda: $0-1 (free tier)
+- CloudWatch Logs: $0.50-1.00
+- X-Ray: $0 (disabled)
+- **Total: ~$0.50-1.00/month**
+
+**Production Environment:**
+- Lex: $0-10 (depends on usage)
+- Lambda: $0.80-4.00
+- CloudWatch Logs: $3-5
+- X-Ray: $5-10 (if enabled)
+- **Total: ~$10-30/month**
 ```
 
 ## Requirements

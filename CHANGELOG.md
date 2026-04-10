@@ -19,9 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Lambda Fulfillment Module**: Complete Lambda function management for Lex bot fulfillment
   - New module: `modules/lambda-fulfillment/` - Standalone Lambda creation
   - Automatic Lex invoke permissions via `aws_lambda_permission`
+  - **Configurable X-Ray tracing** (default: disabled to save costs)
+  - **Configurable Lambda versioning** (default: enabled for Lex)
+  - **Dead Letter Queue support** (optional)
+  - **Ephemeral storage configuration** (optional, 512 MB - 10 GB)
+  - **EFS file system support** (optional)
+  - **Container image support** (optional)
   - Lambda versioning (published versions for Lex integration)
   - VPC support for private resource access
-  - X-Ray tracing enabled by default
   - Environment variables (global and per-function)
   - IAM roles with CloudWatch Logs permissions
   - Optional Lambda aliases for environment management
@@ -52,6 +57,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated roadmap and features list
 - GitHub Actions workflow updated with TFLint validation
 - Examples structure expanded to include Lambda patterns
+- **X-Ray tracing default changed from `Active` to `PassThrough`** (disabled by default)
+  - Reduces costs by ~$5-10/month for production workloads
+  - Can be enabled via `enable_xray_tracing = true`
+  - Recommended: Enable only for production observability or debugging
+- Lambda versioning now configurable via `publish_lambda_versions` (default: true for Lex)
+- Enhanced Lambda configuration with advanced options
 
 ### Fixed
 - None - New feature release
@@ -285,9 +296,32 @@ s3://my-bucket/
 - CloudWatch logging is optional (default: `enable_cloudwatch_logging = false`)
 - Existing configurations work without modification
 
+### Cost Optimization
+- **X-Ray disabled by default** - Saves ~$5-10/month per application
+- Ephemeral storage defaults to 512 MB (included in pricing)
+- Optional features only enabled when explicitly configured
+
 ### Migration Notes
 
-No migration required. CloudWatch logging is opt-in.
+**X-Ray Tracing Change:**
+If you relied on X-Ray being always enabled, explicitly enable it:
+
+\`\`\`hcl
+module "lambda_fulfillment" {
+  source = "infrakraft/lexv2models/aws//modules/lambda-fulfillment"
+  version = "1.4.0"
+  
+  lambda_functions = { ... }
+  
+  # Explicitly enable X-Ray (was default in alpha)
+  enable_xray_tracing = true
+}
+\`\`\`
+
+**Backward Compatibility:**
+- All existing configurations work without changes
+- X-Ray now disabled by default (breaking change for cost optimization)
+- Lambda versioning still enabled by default (required for Lex)
 
 **To enable CloudWatch logging:**
 

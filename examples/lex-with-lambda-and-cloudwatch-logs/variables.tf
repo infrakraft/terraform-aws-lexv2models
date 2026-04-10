@@ -54,3 +54,20 @@ variable "create_version" {
   type        = bool
   default     = false
 }
+
+variable "enable_xray_tracing" {
+  description = "Enable AWS X-Ray tracing for Lambda functions (adds cost ~$5-10/month)"
+  type        = bool
+  default     = false
+}
+
+variable "ephemeral_storage_size" {
+  description = "Lambda /tmp storage size in MB (512-10240). Default 512 MB is free."
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.ephemeral_storage_size == null || (var.ephemeral_storage_size >= 512 && var.ephemeral_storage_size <= 10240)
+    error_message = "Ephemeral storage must be between 512 and 10240 MB."
+  }
+}

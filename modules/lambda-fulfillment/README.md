@@ -138,14 +138,137 @@ module "lambda_fulfillment" {
 }
 ```
 
+## X-Ray Tracing
+
+### Cost Considerations
+
+AWS X-Ray can add significant costs:
+- **Trace storage:** $5.00 per million traces
+- **Trace retrieval:** $0.50 per million traces retrieved
+- **Insights queries:** Additional costs
+
+### When to Enable X-Ray
+
+**Enable X-Ray (true) when:**
+- ✅ Debugging complex distributed systems
+- ✅ Need request flow visualization
+- ✅ Troubleshooting performance issues
+- ✅ Production observability requirements
+- ✅ Compliance requires distributed tracing
+
+**Disable X-Ray (false) when:**
+- ✅ Cost-sensitive applications
+- ✅ Simple Lambda functions
+- ✅ CloudWatch Logs sufficient
+- ✅ Development/testing environments
+- ✅ Low traffic applications
+
+### Configuration
+
+```hcl
+module "lambda_fulfillment" {
+  source = "infrakraft/lexv2models/aws//modules/lambda-fulfillment"
+  version = "1.4.0"
+  
+  lambda_functions = { ... }
+  
+  # Disable X-Ray to save costs (default: false)
+  enable_xray_tracing = false
+  
+  # Enable for production observability
+  # enable_xray_tracing = true
+}
+```
+
+### Cost Comparison
+
+**Example: 1 million Lambda invocations/month**
+
+| Configuration | Monthly Cost |
+|---------------|--------------|
+| X-Ray Disabled | $0.00 (X-Ray) |
+| X-Ray Enabled | $5.00-10.00 (X-Ray) |
+
+**Recommendation:** Start with X-Ray disabled. Enable only when needed for debugging or compliance.
+
+## Advanced Configuration
+
+### Dead Letter Queue
+
+Capture failed invocations:
+
+```hcl
+resource "aws_sqs_queue" "lambda_dlq" {
+  name = "lambda-dlq"
+}
+
+module "lambda_fulfillment" {
+  source = "infrakraft/lexv2models/aws//modules/lambda-fulfillment"
+  version = "1.4.0"
+  
+  lambda_functions = { ... }
+  
+  dead_letter_config = {
+    target_arn = aws_sqs_queue.lambda_dlq.arn
+  }
+}
+```
+
+### Ephemeral Storage
+
+Increase /tmp storage for large file processing:
+
+```hcl
+module "lambda_fulfillment" {
+  source = "infrakraft/lexv2models/aws//modules/lambda-fulfillment"
+  version = "1.4.0"
+  
+  lambda_functions = { ... }
+  
+  # Increase from default 512 MB to 2 GB
+  ephemeral_storage_size = 2048
+}
+```
+
+**Cost:** $0.0000000309 per GB-second above 512 MB
+
+### EFS File System
+
+Mount EFS for shared storage:
+
+```hcl
+module "lambda_fulfillment" {
+  source = "infrakraft/lexv2models/aws//modules/lambda-fulfillment"
+  version = "1.4.0"
+  
+  lambda_functions = { ... }
+  
+  vpc_config = {
+    subnet_ids         = ["subnet-abc123"]
+    security_group_ids = ["sg-xyz789"]
+  }
+  
+  file_system_config = {
+    arn              = aws_efs_access_point.lambda.arn
+    local_mount_path = "/mnt/efs"
+  }
+}
+```
+
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | lambda_functions | Map of Lambda function configurations | `map(object)` | n/a | yes |
 | enable_lex_invocation | Grant Lex permission to invoke functions | `bool` | `true` | no |
+| **enable_xray_tracing** | **Enable AWS X-Ray tracing (can be expensive)** | **bool** | **false** | **no** |
+| **publish_lambda_versions** | **Publish Lambda versions (required for Lex)** | **bool** | **true** | **no** |
 | global_environment_variables | Environment variables for all functions | `map(string)` | `{}` | no |
 | vpc_config | VPC configuration (subnet_ids, security_group_ids) | `object` | `null` | no |
+| dead_letter_config | Dead Letter Queue configuration | `object` | `null` | no |
+| ephemeral_storage_size | Size of /tmp directory in MB (512-10240) | `number` | `null` | no |
+| file_system_config | EFS file system configuration | `object` | `null` | no |
+| image_config | Container image configuration | `object` | `null` | no |
 | create_aliases | Create Lambda aliases | `bool` | `false` | no |
 | alias_name | Name of the alias (if create_aliases is true) | `string` | `"live"` | no |
 | tags | Tags to apply to all resources | `map(string)` | `{}` | no |

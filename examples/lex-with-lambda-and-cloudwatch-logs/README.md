@@ -334,8 +334,112 @@ resource "aws_kms_key_policy" "logs" {
 
 ### Use in Configuration
 
+## X-Ray Tracing
+
+### Cost Impact
+
+AWS X-Ray adds approximately **$5-10/month** for production workloads:
+- Trace storage: $5.00 per million traces
+- Trace retrieval: $0.50 per million traces retrieved
+
+### Configuration
+
+**Disable X-Ray (Recommended for Development):**
+
+```hcl
+# terraform.tfvars
+enable_xray_tracing = false
+```
+
+**Enable X-Ray (Optional for Production):**
+
+```hcl
+# terraform.tfvars
+enable_xray_tracing = true
+```
+
+### When to Enable
+
+✅ **Enable when:**
+- Debugging distributed systems
+- Need request flow visualization
+- Production observability requirements
+- Compliance mandates distributed tracing
+
+❌ **Disable when:**
+- Cost-sensitive applications
+- Simple Lambda functions
+- Development/testing (CloudWatch Logs sufficient)
+- Low traffic applications
+
+### Viewing X-Ray Traces
+
+If enabled:
+
+1. Go to AWS X-Ray Console
+2. View Service Map
+3. Analyze traces
+4. Monitor performance
+
 ```hcl
 kms_key_id = aws_kms_key.logs.arn
+```
+
+## Advanced Configuration
+
+### X-Ray Tracing
+
+Control AWS X-Ray tracing based on environment:
+
+```hcl
+# Development - X-Ray disabled (save costs)
+environment         = "dev"
+enable_xray_tracing = false
+
+# Production - X-Ray enabled (observability)
+environment         = "prod"
+enable_xray_tracing = true
+```
+
+**Cost:** Adds ~$5-10/month for production workloads
+
+### Ephemeral Storage
+
+Increase Lambda /tmp storage for large file processing:
+
+```hcl
+# Default: 512 MB (included)
+ephemeral_storage_size = null
+
+# Increase to 2 GB for large files
+ephemeral_storage_size = 2048
+```
+
+**Cost:** $0.0000000309 per GB-second above 512 MB
+
+### Environment-Specific Configuration
+
+```hcl
+# Development
+environment            = "dev"
+log_retention_days     = 7
+enable_xray_tracing    = false
+ephemeral_storage_size = null
+kms_key_id             = null
+
+# Staging
+environment            = "staging"
+log_retention_days     = 30
+enable_xray_tracing    = true
+ephemeral_storage_size = null
+kms_key_id             = aws_kms_key.staging.arn
+
+# Production
+environment            = "prod"
+log_retention_days     = 365
+enable_xray_tracing    = true
+ephemeral_storage_size = 2048  # If needed
+kms_key_id             = aws_kms_key.prod.arn
 ```
 
 ## Troubleshooting

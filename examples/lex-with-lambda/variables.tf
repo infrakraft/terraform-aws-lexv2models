@@ -37,3 +37,9 @@ variable "create_version" {
   type        = bool
   default     = false
 }
+
+variable "enable_xray_tracing" {
+  description = "Enable AWS X-Ray tracing for Lambda functions (can add ~$5-10/month cost)"
+  type        = bool
+  default     = false
+}

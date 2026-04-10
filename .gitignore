@@ -30,4 +30,5 @@ terraform.rc
 # .terraform.lock.hcl
 # **/.terraform.lock.hcl
 
-validate_all.sh
+terraform-preflight.sh
+terraform-smoke-test.sh

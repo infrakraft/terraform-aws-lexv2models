@@ -19,11 +19,11 @@ resource "aws_lambda_function" "this" {
   s3_key           = each.value.s3_key
   source_code_hash = lookup(each.value, "source_code_hash", null)
 
-  # KMS encryption
+  # KMS encryption (optional)
   kms_key_arn = lookup(each.value, "kms_key_arn", null)
 
-  # Always publish for versioning (required for Lex)
-  publish = true
+  # Publishing (required for Lex, but configurable)
+  publish = var.publish_lambda_versions
 
   # Environment variables
   dynamic "environment" {
@@ -50,9 +50,48 @@ resource "aws_lambda_function" "this" {
     }
   }
 
-  # X-Ray tracing
+  # X-Ray tracing (configurable - can be expensive)
   tracing_config {
-    mode = "Active"
+    mode = var.enable_xray_tracing ? "Active" : "PassThrough"
+  }
+
+  # Dead Letter Queue (optional)
+  dynamic "dead_letter_config" {
+    for_each = var.dead_letter_config != null ? [var.dead_letter_config] : []
+
+    content {
+      target_arn = dead_letter_config.value.target_arn
+    }
+  }
+
+  # File system config (optional - for EFS)
+  dynamic "file_system_config" {
+    for_each = var.file_system_config != null ? [var.file_system_config] : []
+
+    content {
+      arn              = file_system_config.value.arn
+      local_mount_path = file_system_config.value.local_mount_path
+    }
+  }
+
+  # Image config (for container images)
+  dynamic "image_config" {
+    for_each = var.image_config != null ? [var.image_config] : []
+
+    content {
+      command           = lookup(image_config.value, "command", null)
+      entry_point       = lookup(image_config.value, "entry_point", null)
+      working_directory = lookup(image_config.value, "working_directory", null)
+    }
+  }
+
+  # Ephemeral storage (configurable - default 512 MB)
+  dynamic "ephemeral_storage" {
+    for_each = var.ephemeral_storage_size != null ? [var.ephemeral_storage_size] : []
+
+    content {
+      size = ephemeral_storage.value
+    }
   }
 
   tags = merge(
@@ -90,7 +129,7 @@ resource "aws_lambda_permission" "allow_lex" {
   source_account = data.aws_caller_identity.current.account_id
 
   # Use qualified ARN (includes version) for Lex
-  qualifier = aws_lambda_function.this[each.key].version
+  qualifier = var.publish_lambda_versions ? aws_lambda_function.this[each.key].version : null
 }
 
 # ============================================================================

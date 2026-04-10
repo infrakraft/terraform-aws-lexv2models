@@ -93,11 +93,22 @@ module "lambda_fulfillment" {
   # Enable Lex to invoke these functions
   enable_lex_invocation = true
 
+  # X-Ray tracing configuration
+  # Development: false (save costs)
+  # Production: true (observability)
+  enable_xray_tracing = var.environment == "prod" && var.enable_xray_tracing
+
+  # Publish versions (required for Lex)
+  publish_lambda_versions = true
+
   # Global environment variables
   global_environment_variables = {
     ENVIRONMENT = var.environment
     LOG_LEVEL   = var.environment == "prod" ? "INFO" : "DEBUG"
   }
+
+  # Optional: Ephemeral storage (if needed for large file processing)
+  ephemeral_storage_size = var.ephemeral_storage_size
 
   tags = {
     Environment = var.environment
@@ -111,7 +122,7 @@ module "lambda_fulfillment" {
 # ============================================================================
 
 module "lex_bot" {
-  source = "../.."
+  source = "../../modules/lexv2models"
 
   bot_config          = local.bot_config
   lexv2_bot_role_name = "${local.namespace}-lex-role"
