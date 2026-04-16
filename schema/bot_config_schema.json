@@ -1,0 +1,405 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Terraform AWS Lex V2 Bot Configuration Schema",
+  "description": "Simplified schema for defining Lex V2 bots via Terraform",
+  "type": "object",
+  "required": ["name", "type", "idle_session_ttl", "child_directed", "locales"],
+  "additionalProperties": false,
+
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Bot name (must be unique in your AWS account)",
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "minLength": 1,
+      "maxLength": 100
+    },
+
+    "description": {
+      "type": "string",
+      "description": "Bot description",
+      "maxLength": 200
+    },
+
+    "type": {
+      "type": "string",
+      "description": "Bot type",
+      "enum": ["Bot"],
+      "default": "Bot"
+    },
+
+    "idle_session_ttl": {
+      "type": "integer",
+      "description": "Idle session timeout in seconds (60-86400)",
+      "minimum": 60,
+      "maximum": 86400,
+      "default": 300
+    },
+
+    "child_directed": {
+      "type": "boolean",
+      "description": "Whether the bot is directed at children under 13 (COPPA compliance)",
+      "default": false
+    },
+
+    "locales": {
+      "type": "object",
+      "description": "Map of locale configurations (key = locale_id)",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^(en_US|en_GB|en_AU|en_IN|es_ES|es_US|fr_FR|fr_CA|de_DE|it_IT|ja_JP|ko_KR|pt_BR|zh_CN)$": {
+          "type": "object",
+          "required": ["confidence_threshold"],
+          "additionalProperties": false,
+          "properties": {
+            "description": {
+              "type": "string",
+              "maxLength": 200
+            },
+
+            "confidence_threshold": {
+              "type": "number",
+              "description": "NLU confidence threshold (0.0-1.0)",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "default": 0.4
+            },
+
+            "voice_settings": {
+              "type": "object",
+              "description": "Voice settings for conversational bots",
+              "required": ["voice_id"],
+              "additionalProperties": false,
+              "properties": {
+                "voice_id": {
+                  "type": "string",
+                  "description": "Amazon Polly voice ID (e.g., Joanna, Matthew, Amy)"
+                },
+                "engine": {
+                  "type": "string",
+                  "description": "Voice engine type",
+                  "enum": ["standard", "neural"],
+                  "default": "standard"
+                }
+              }
+            },
+
+            "slot_types": {
+              "type": "object",
+              "description": "Custom slot types for this locale",
+              "additionalProperties": false,
+              "patternProperties": {
+                "^[A-Za-z0-9_]+$": {
+                  "type": "object",
+                  "required": ["description", "value_selection_strategy", "values"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "description": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+
+                    "value_selection_strategy": {
+                      "type": "string",
+                      "description": "How to resolve slot values",
+                      "enum": ["OriginalValue", "TopResolution"],
+                      "default": "TopResolution"
+                    },
+
+                    "parent_slot_type": {
+                      "type": "string",
+                      "description": "Parent slot type for inheritance",
+                      "pattern": "^AMAZON\\.[A-Za-z]+$"
+                    },
+
+                    "values": {
+                      "type": "array",
+                      "description": "List of possible values",
+                      "minItems": 1,
+                      "items": {
+                        "type": "object",
+                        "required": ["value"],
+                        "additionalProperties": false,
+                        "properties": {
+                          "value": {
+                            "type": "string",
+                            "description": "The slot value",
+                            "minLength": 1
+                          },
+                          "synonyms": {
+                            "type": "array",
+                            "description": "Synonyms for this value",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+
+            "intents": {
+              "type": "object",
+              "description": "Intents for this locale",
+              "minProperties": 1,
+              "additionalProperties": false,
+              "patternProperties": {
+                "^[A-Za-z0-9_]+$": {
+                  "type": "object",
+                  "required": ["description", "sample_utterances"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "description": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+
+                    "intent_type": {
+                      "type": "string",
+                      "description": "Intent type (Normal or FallbackIntent)",
+                      "enum": ["Normal", "FallbackIntent"],
+                      "default": "Normal"
+                    },
+
+                    "sample_utterances": {
+                      "type": "array",
+                      "description": "Example phrases users might say",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+
+                    "dialog_code_hook": {
+                      "type": "object",
+                      "description": "Dialog code hook (runs before slot elicitation)",
+                      "additionalProperties": false,
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean",
+                          "default": false
+                        }
+                      }
+                    },
+
+                    "fulfillment_code_hook": {
+                      "type": "object",
+                      "description": "Fulfillment code hook (runs after slots filled)",
+                      "additionalProperties": false,
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean",
+                          "default": false
+                        }
+                      }
+                    },
+
+                    "initial_response": {
+                      "type": "object",
+                      "description": "Initial response message",
+                      "additionalProperties": false,
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "variations": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        }
+                      }
+                    },
+
+                    "confirmation_prompt": {
+                      "type": "object",
+                      "description": "Confirmation prompt configuration",
+                      "additionalProperties": false,
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "variations": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "max_retries": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5,
+                          "default": 2
+                        },
+                        "message_selection_strategy": {
+                          "type": "string",
+                          "enum": ["Random", "Ordered"],
+                          "default": "Ordered"
+                        }
+                      }
+                    },
+
+                    "confirmation_response": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "variations": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+
+                    "declination_response": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "variations": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+
+                    "failure_response": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "variations": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+
+                    "closing_prompt": {
+                      "type": "object",
+                      "description": "Closing message after intent completion",
+                      "additionalProperties": false,
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "ssml_message": {
+                          "type": "string",
+                          "description": "SSML version of the message"
+                        },
+                        "variations": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+
+                    "slots": {
+                      "type": "object",
+                      "description": "Slots for this intent",
+                      "additionalProperties": false,
+                      "patternProperties": {
+                        "^[A-Za-z0-9_]+$": {
+                          "type": "object",
+                          "required": ["description", "slot_type", "required", "prompt"],
+                          "additionalProperties": false,
+                          "properties": {
+                            "description": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+
+                            "slot_type": {
+                              "type": "string",
+                              "description": "Slot type (custom or AMAZON.XXX)",
+                              "pattern": "^(AMAZON\\.[A-Za-z]+|[A-Za-z0-9_]+)$"
+                            },
+
+                            "required": {
+                              "type": "boolean",
+                              "description": "Whether this slot is required",
+                              "default": false
+                            },
+
+                            "prompt": {
+                              "type": "string",
+                              "description": "Elicitation prompt",
+                              "minLength": 1
+                            },
+
+                            "prompt_variations": {
+                              "type": "array",
+                              "description": "Prompt variations",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+
+                            "max_retries": {
+                              "type": "integer",
+                              "description": "Maximum retry attempts",
+                              "minimum": 1,
+                              "maximum": 5,
+                              "default": 2
+                            },
+
+                            "allow_interrupt": {
+                              "type": "boolean",
+                              "description": "Allow user to interrupt",
+                              "default": true
+                            },
+
+                            "message_selection_strategy": {
+                              "type": "string",
+                              "enum": ["Random", "Ordered"],
+                              "default": "Random"
+                            },
+
+                            "obfuscation": {
+                              "type": "string",
+                              "description": "Obfuscation setting for PII protection",
+                              "enum": ["None", "DefaultObfuscation"],
+                              "default": "None"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

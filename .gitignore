@@ -32,3 +32,4 @@ terraform.rc
 
 terraform-preflight.sh
 terraform-smoke-test.sh
+validate_schema.sh
