@@ -82,8 +82,7 @@ jobs:
       - name: Run TFLint (modules)
         run: |
           for dir in modules/*/; do
-            echo "========================================
-"
+            echo "========================================"
             echo "📦 Linting: $dir"
             echo "----------------------------------------"
             (cd "$dir" && tflint --format compact)
