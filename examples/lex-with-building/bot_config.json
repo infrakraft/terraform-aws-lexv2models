@@ -1,107 +1,161 @@
 {
-  "name": "BookingBot",
-  "description": "A simple hotel room booking bot",
-  "idle_session_ttl": 400,
+  "name": "insurance-bot",
+  "description": "Insurance claims and policy management bot",
+  "type": "Bot",
+  "idle_session_ttl": 550,
   "child_directed": false,
   "locales": {
-    "en_US": {
-      "confidence_threshold": 0.4,
+    "en_GB": {
+      "description": "British English locale",
+      "confidence_threshold": 0.5,
       "voice_settings": {
-        "voice_id": "Joanna",
+        "voice_id": "Amy",
         "engine": "neural"
       },
       "slot_types": {
-        "RoomType": {
-          "description": "Available room categories",
-          "value_selection_strategy": "RestrictToSlotValues",
+        "InsuranceType": {
+          "description": "Type of insurance",
+          "value_selection_strategy": "TopResolution",
           "values": [
             {
-              "value": "single",
+              "value": "Car",
               "synonyms": [
-                "single room",
-                "one bed"
+                "Auto",
+                "Vehicle"
               ]
             },
             {
-              "value": "double",
+              "value": "Home",
               "synonyms": [
-                "double room",
-                "two beds"
+                "House",
+                "Property"
               ]
             },
             {
-              "value": "suite",
+              "value": "Life"
+            },
+            {
+              "value": "Travel"
+            },
+            {
+              "value": "Health",
               "synonyms": [
-                "suite room",
-                "luxury"
+                "Medical"
               ]
+            }
+          ]
+        },
+        "ClaimType": {
+          "description": "Type of claim",
+          "value_selection_strategy": "TopResolution",
+          "values": [
+            {
+              "value": "Accident",
+              "synonyms": [
+                "Crash",
+                "Collision"
+              ]
+            },
+            {
+              "value": "Theft",
+              "synonyms": [
+                "Stolen"
+              ]
+            },
+            {
+              "value": "Damage"
+            },
+            {
+              "value": "Medical"
+            },
+            {
+              "value": "Loss"
             }
           ]
         }
       },
       "intents": {
-        "BookRoom": {
-          "description": "Handles hotel room booking requests",
+        "FileClaimIntent": {
+          "description": "File an insurance claim",
           "sample_utterances": [
-            "I want to book a room",
-            "Reserve a room for me",
-            "I need a hotel room",
-            "Make a reservation"
+            "File a claim",
+            "I need to make a {ClaimType} claim",
+            "Report an incident",
+            "Submit a claim"
           ],
+          "initial_response": {
+            "message": "I can help you file a claim. Let’s begin.",
+            "variations": [
+              "Starting your claim process.",
+              "Let’s get your claim submitted."
+            ]
+          },
+          "dialog_code_hook": {
+            "enabled": true
+          },
+          "fulfillment_code_hook": {
+            "enabled": true
+          },
           "confirmation_prompt": {
-            "message": "Just to confirm \u2014 you want a {RoomType} room checking in on {CheckInDate} for {Nights} nights. Is that right?",
-            "max_retries": 2,
-            "message_selection_strategy": "Ordered"
+            "message": "You are about to file a claim. Do you want to proceed?",
+            "variations": [
+              "Please confirm that you want to file a claim.",
+              "Do you really want to submit this claim?"
+            ],
+            "message_selection_strategy": "Ordered",
+            "max_retries": 2
           },
           "confirmation_response": {
-            "message": "Great, your booking is confirmed. You will receive a confirmation email shortly."
+            "message": "Your claim is being submitted.",
+            "variations": [
+              "Submitting your claim now.",
+              "Processing your claim request."
+            ]
           },
           "declination_response": {
-            "message": "No problem. Let me know if you would like to make a different booking."
+            "message": "Okay, I will not submit the claim.",
+            "variations": [
+              "No problem, I have cancelled the claim.",
+              "Your request has been stopped."
+            ]
+          },
+          "failure_response": {
+            "message": "I couldn't understand your response.",
+            "variations": [
+              "Please confirm again.",
+              "Sorry, I didn't get that. Try again."
+            ]
           },
           "closing_prompt": {
-            "message": "Thank you for choosing us. Is there anything else I can help you with?"
+            "message": "Thank you, your request has been logged.",
+            "ssml_message": "<speak>Thank you. Your request has been logged.</speak>",
+            "variations": [
+              "Thanks for submitting your claim.",
+              "Your claim has been successfully recorded."
+            ]
           },
           "slots": {
-            "RoomType": {
-              "slot_type": "RoomType",
-              "required": true,
-              "prompt": "What type of room would you like \u2014 single, double, or suite?"
-            },
-            "CheckInDate": {
-              "slot_type": "AMAZON.Date",
-              "required": true,
-              "prompt": "What date would you like to check in?"
-            },
-            "Nights": {
-              "slot_type": "AMAZON.Number",
-              "required": true,
-              "prompt": "How many nights will you be staying?"
-            }
-          }
-        },
-        "CancelBooking": {
-          "description": "Cancels an existing booking",
-          "sample_utterances": [
-            "Cancel my booking",
-            "I want to cancel my reservation",
-            "Please cancel my room"
-          ],
-          "confirmation_prompt": {
-            "message": "Are you sure you want to cancel your booking with reference {BookingRef}?",
-            "max_retries": 1
-          },
-          "confirmation_response": {
-            "message": "Your booking has been cancelled."
-          },
-          "declination_response": {
-            "message": "Your booking has not been cancelled. Let me know if you need anything else."
-          },
-          "slots": {
-            "BookingRef": {
+            "PolicyNumber": {
+              "description": "Insurance policy number",
               "slot_type": "AMAZON.AlphaNumeric",
               "required": true,
-              "prompt": "Please provide your booking reference number."
+              "prompt": "What is your policy number?",
+              "max_retries": 2,
+              "obfuscation": "DefaultObfuscation"
+            },
+            "ClaimType": {
+              "description": "Type of claim",
+              "slot_type": "ClaimType",
+              "required": true,
+              "prompt": "What type of claim is this?",
+              "max_retries": 2
+            },
+            "IncidentDate": {
+              "description": "Date of incident",
+              "slot_type": "AMAZON.Date",
+              "required": true,
+              "prompt": "When did the incident occur?",
+              "max_retries": 2
             }
           }
         }

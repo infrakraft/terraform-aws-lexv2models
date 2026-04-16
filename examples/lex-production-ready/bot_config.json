@@ -1,0 +1,221 @@
+{
+  "name": "customer-service-bot",
+  "description": "Production customer service bot with advanced features",
+  "type": "Bot",
+  "idle_session_ttl": 900,
+  "child_directed": false,
+  "locales": {
+    "en_US": {
+      "description": "US English locale",
+      "confidence_threshold": 0.6,
+      "voice_settings": {
+        "voice_id": "Joanna",
+        "engine": "neural"
+      },
+      "slot_types": {
+        "OrderStatus": {
+          "description": "Order status types",
+          "value_selection_strategy": "TopResolution",
+          "values": [
+            { "value": "Pending", "synonyms": ["Processing", "In Progress"] },
+            { "value": "Shipped", "synonyms": ["Dispatched", "On the way"] },
+            { "value": "Delivered", "synonyms": ["Completed", "Arrived"] },
+            { "value": "Cancelled", "synonyms": ["Canceled", "Void"] }
+          ]
+        },
+        "AccountType": {
+          "description": "Account types",
+          "value_selection_strategy": "TopResolution",
+          "values": [
+            { "value": "Personal", "synonyms": ["Individual"] },
+            { "value": "Business", "synonyms": ["Corporate", "Company"] }
+          ]
+        }
+      },
+      "intents": {
+        "CheckOrderIntent": {
+          "description": "Check order status",
+          "sample_utterances": [
+            "Check my order",
+            "Where is my order {OrderNumber}",
+            "Track my package",
+            "Order status"
+          ],
+          "confirmation_prompt": {
+            "message": "I'll check your order status. Is order number {OrderNumber} correct?"
+          },
+          "declination_response": {
+            "message": "Okay, let's start over with the correct order number."
+          },
+          "closing_prompt": {
+            "message": "Your order inquiry has been processed."
+          },
+          "slots": {
+            "OrderNumber": {
+              "description": "Customer order number",
+              "slot_type": "AMAZON.AlphaNumeric",
+              "required": true,
+              "prompt": "What is your order number?",
+              "max_retries": 3,
+              "allow_interrupt": true,
+              "message_selection_strategy": "Random",
+              "obfuscation": "None"
+            },
+            "Email": {
+              "description": "Customer email for verification",
+              "slot_type": "AMAZON.EmailAddress",
+              "required": true,
+              "prompt": "What email address did you use for this order?",
+              "max_retries": 2,
+              "allow_interrupt": true,
+              "message_selection_strategy": "Random",
+              "obfuscation": "DefaultObfuscation"
+            }
+          }
+        },
+        "AccountInquiryIntent": {
+          "description": "Account-related inquiries",
+          "sample_utterances": [
+            "I have a question about my account",
+            "Account help",
+            "Billing inquiry",
+            "Update my account"
+          ],
+          "confirmation_prompt": {
+            "message": "I can help with your {AccountType} account. Is that correct?"
+          },
+          "closing_prompt": {
+            "message": "Is there anything else I can help you with?"
+          },
+          "slots": {
+            "AccountType": {
+              "description": "Type of account",
+              "slot_type": "AccountType",
+              "required": true,
+              "prompt": "Is this for a personal or business account?",
+              "max_retries": 2,
+              "allow_interrupt": true,
+              "message_selection_strategy": "Random",
+              "obfuscation": "None"
+            },
+            "AccountNumber": {
+              "description": "Account number",
+              "slot_type": "AMAZON.Number",
+              "required": true,
+              "prompt": "What is your account number?",
+              "max_retries": 3,
+              "allow_interrupt": true,
+              "message_selection_strategy": "Random",
+              "obfuscation": "DefaultObfuscation"
+            },
+            "SSN": {
+              "description": "Last 4 digits of SSN for verification",
+              "slot_type": "AMAZON.Number",
+              "required": true,
+              "prompt": "What are the last 4 digits of your Social Security Number?",
+              "max_retries": 2,
+              "allow_interrupt": true,
+              "message_selection_strategy": "Random",
+              "obfuscation": "DefaultObfuscation"
+            }
+          }
+        },
+        "PaymentIntent": {
+          "description": "Process payment",
+          "sample_utterances": [
+            "I want to make a payment",
+            "Pay my bill",
+            "Process payment"
+          ],
+          "confirmation_prompt": {
+            "message": "You want to pay ${PaymentAmount} using card ending in {CreditCardNumber}. Is that correct?"
+          },
+          "closing_prompt": {
+            "message": "Your payment has been processed successfully."
+          },
+          "slots": {
+            "PaymentAmount": {
+              "description": "Payment amount",
+              "slot_type": "AMAZON.Number",
+              "required": true,
+              "prompt": "How much would you like to pay?",
+              "max_retries": 2,
+              "allow_interrupt": true,
+              "message_selection_strategy": "Random",
+              "obfuscation": "None"
+            },
+            "CreditCardNumber": {
+              "description": "Last 4 digits of credit card",
+              "slot_type": "AMAZON.Number",
+              "required": true,
+              "prompt": "What are the last 4 digits of your credit card?",
+              "max_retries": 3,
+              "allow_interrupt": true,
+              "message_selection_strategy": "Random",
+              "obfuscation": "DefaultObfuscation"
+            }
+          }
+        }
+      }
+    },
+    "en_GB": {
+      "description": "British English locale",
+      "confidence_threshold": 0.6,
+      "voice_settings": {
+        "voice_id": "Amy",
+        "engine": "neural"
+      },
+      "slot_types": {
+        "OrderStatus": {
+          "description": "Order status types",
+          "value_selection_strategy": "TopResolution",
+          "values": [
+            { "value": "Pending", "synonyms": ["Processing", "In Progress"] },
+            { "value": "Shipped", "synonyms": ["Dispatched", "On the way"] },
+            { "value": "Delivered", "synonyms": ["Completed", "Arrived"] },
+            { "value": "Cancelled", "synonyms": ["Canceled", "Void"] }
+          ]
+        }
+      },
+      "intents": {
+        "CheckOrderIntent": {
+          "description": "Check order status",
+          "sample_utterances": [
+            "Check my order",
+            "Where is my order {OrderNumber}",
+            "Track my parcel",
+            "Order status"
+          ],
+          "confirmation_prompt": {
+            "message": "I'll check your order status. Is order number {OrderNumber} correct?"
+          },
+          "closing_prompt": {
+            "message": "Your order enquiry has been processed."
+          },
+          "slots": {
+            "OrderNumber": {
+              "description": "Customer order number",
+              "slot_type": "AMAZON.AlphaNumeric",
+              "required": true,
+              "prompt": "What is your order number?",
+              "max_retries": 3,
+              "allow_interrupt": true,
+              "message_selection_strategy": "Random",
+              "obfuscation": "None"
+            },
+            "Email": {
+              "description": "Customer email for verification",
+              "slot_type": "AMAZON.EmailAddress",
+              "required": true,
+              "prompt": "What email address did you use?",
+              "max_retries": 2,
+              "allow_interrupt": true,
+              "message_selection_strategy": "Random",
+              "obfuscation": "DefaultObfuscation"
+            }
+          }
+        }
+      }
+    }
+  }
+}

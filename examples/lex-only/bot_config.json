@@ -1,108 +1,29 @@
 {
-  "name": "BookingBot",
-  "description": "A simple hotel room booking bot",
+  "name": "simple-greeting-bot",
+  "description": "Simple greeting bot for testing",
+  "type": "Bot",
   "idle_session_ttl": 300,
   "child_directed": false,
   "locales": {
     "en_US": {
+      "description": "US English locale",
       "confidence_threshold": 0.4,
       "voice_settings": {
         "voice_id": "Joanna",
-        "engine": "neural"
-      },
-      "slot_types": {
-        "RoomType": {
-          "description": "Available room categories",
-          "value_selection_strategy": "RestrictToSlotValues",
-          "values": [
-            {
-              "value": "single",
-              "synonyms": [
-                "single room",
-                "one bed"
-              ]
-            },
-            {
-              "value": "double",
-              "synonyms": [
-                "double room",
-                "two beds"
-              ]
-            },
-            {
-              "value": "suite",
-              "synonyms": [
-                "suite room",
-                "luxury"
-              ]
-            }
-          ]
-        }
+        "engine": "standard"
       },
       "intents": {
-        "BookRoom": {
-          "description": "Handles hotel room booking requests",
+        "GreetingIntent": {
+          "description": "Greeting intent",
           "sample_utterances": [
-            "I want to book a room",
-            "Reserve a room for me",
-            "I need a hotel room",
-            "Make a reservation"
+            "Hello",
+            "Hi",
+            "Hey",
+            "Good morning",
+            "Good afternoon"
           ],
-          "confirmation_prompt": {
-            "message": "Just to confirm \u2014 you want a {RoomType} room checking in on {CheckInDate} for {Nights} nights. Is that right?",
-            "max_retries": 2,
-            "message_selection_strategy": "Ordered"
-          },
-          "confirmation_response": {
-            "message": "Great, your booking is confirmed. You will receive a confirmation email shortly."
-          },
-          "declination_response": {
-            "message": "No problem. Let me know if you would like to make a different booking."
-          },
           "closing_prompt": {
-            "message": "Thank you for choosing us. Is there anything else I can help you with?"
-          },
-          "slots": {
-            "RoomType": {
-              "slot_type": "RoomType",
-              "required": true,
-              "prompt": "What type of room would you like \u2014 single, double, or suite?"
-            },
-            "CheckInDate": {
-              "slot_type": "AMAZON.Date",
-              "required": true,
-              "prompt": "What date would you like to check in?"
-            },
-            "Nights": {
-              "slot_type": "AMAZON.Number",
-              "required": true,
-              "prompt": "How many nights will you be staying?"
-            }
-          }
-        },
-        "CancelBooking": {
-          "description": "Cancels an existing booking",
-          "sample_utterances": [
-            "Cancel my booking",
-            "I want to cancel my reservation",
-            "Please cancel my room"
-          ],
-          "confirmation_prompt": {
-            "message": "Are you sure you want to cancel your booking with reference {BookingRef}?",
-            "max_retries": 1
-          },
-          "confirmation_response": {
-            "message": "Your booking has been cancelled."
-          },
-          "declination_response": {
-            "message": "Your booking has not been cancelled. Let me know if you need anything else."
-          },
-          "slots": {
-            "BookingRef": {
-              "slot_type": "AMAZON.AlphaNumeric",
-              "required": true,
-              "prompt": "Please provide your booking reference number."
-            }
+            "message": "Hello! How can I help you today?"
           }
         }
       }

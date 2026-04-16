@@ -12,39 +12,71 @@
         "voice_id": "Amy",
         "engine": "neural"
       },
-      "custom_vocabulary": [
-        { "phrase": "No Claims Bonus", "display_as": "NCB", "weight": 3 },
-        { "phrase": "Third Party Liability", "display_as": "TPL", "weight": 2 },
-        { "phrase": "Windscreen Cover", "weight": 1 }
-      ],
       "slot_types": {
         "InsuranceType": {
           "description": "Type of insurance",
-          "value_selection_strategy": "RestrictToSlotValues",
+          "value_selection_strategy": "TopResolution",
           "values": [
-            { "value": "Car", "synonyms": ["Auto", "Vehicle"] },
-            { "value": "Home", "synonyms": ["House", "Property"] },
-            { "value": "Life" },
-            { "value": "Travel" },
-            { "value": "Health", "synonyms": ["Medical"] }
+            {
+              "value": "Car",
+              "synonyms": [
+                "Auto",
+                "Vehicle"
+              ]
+            },
+            {
+              "value": "Home",
+              "synonyms": [
+                "House",
+                "Property"
+              ]
+            },
+            {
+              "value": "Life"
+            },
+            {
+              "value": "Travel"
+            },
+            {
+              "value": "Health",
+              "synonyms": [
+                "Medical"
+              ]
+            }
           ]
         },
         "ClaimType": {
           "description": "Type of claim",
-          "value_selection_strategy": "RestrictToSlotValues",
+          "value_selection_strategy": "TopResolution",
           "values": [
-            { "value": "Accident", "synonyms": ["Crash", "Collision"] },
-            { "value": "Theft", "synonyms": ["Stolen"] },
-            { "value": "Damage" },
-            { "value": "Medical" },
-            { "value": "Loss" }
+            {
+              "value": "Accident",
+              "synonyms": [
+                "Crash",
+                "Collision"
+              ]
+            },
+            {
+              "value": "Theft",
+              "synonyms": [
+                "Stolen"
+              ]
+            },
+            {
+              "value": "Damage"
+            },
+            {
+              "value": "Medical"
+            },
+            {
+              "value": "Loss"
+            }
           ]
         }
       },
       "intents": {
         "FileClaimIntent": {
           "description": "File an insurance claim",
-          "intent_type": "Normal",
           "sample_utterances": [
             "File a claim",
             "I need to make a {ClaimType} claim",
@@ -53,27 +85,78 @@
           ],
           "initial_response": {
             "message": "I can help you file a claim. Let’s begin.",
-            "variations": ["Starting your claim process.", "Let’s get your claim submitted."]
+            "variations": [
+              "Starting your claim process.",
+              "Let’s get your claim submitted."
+            ]
           },
-          "dialog_code_hook": { "enabled": true },
-          "fulfillment_code_hook": { "enabled": true },
-          "fulfillment_lambda_name": "claims_handler",
-          "lambda_config": { "function_name": "claims_handler", "timeout_ms": 5000 },
+          "dialog_code_hook": {
+            "enabled": true
+          },
+          "fulfillment_code_hook": {
+            "enabled": true
+          },
           "confirmation_prompt": {
             "message": "You are about to file a claim. Do you want to proceed?",
-            "variations": ["Please confirm that you want to file a claim.", "Do you really want to submit this claim?"],
+            "variations": [
+              "Please confirm that you want to file a claim.",
+              "Do you really want to submit this claim?"
+            ],
             "message_selection_strategy": "Ordered",
             "max_retries": 2
           },
-          "confirmation_response": { "message": "Your claim is being submitted.", "variations": ["Submitting your claim now.", "Processing your claim request."] },
-          "declination_response": { "message": "Okay, I will not submit the claim.", "variations": ["No problem, I have cancelled the claim.", "Your request has been stopped."] },
-          "failure_response": { "message": "I couldn't understand your response.", "variations": ["Please confirm again.", "Sorry, I didn't get that. Try again."] },
-          "closing_prompt": { "message": "Thank you, your request has been logged.", "ssml_message": "<speak>Thank you. Your request has been logged.</speak>", "variations": ["Thanks for submitting your claim.", "Your claim has been successfully recorded."] },
-          "fulfillment_response": { "message": "Your claim has been successfully processed.", "variations": ["Your claim is now submitted.", "We’ve recorded your claim successfully."] },
+          "confirmation_response": {
+            "message": "Your claim is being submitted.",
+            "variations": [
+              "Submitting your claim now.",
+              "Processing your claim request."
+            ]
+          },
+          "declination_response": {
+            "message": "Okay, I will not submit the claim.",
+            "variations": [
+              "No problem, I have cancelled the claim.",
+              "Your request has been stopped."
+            ]
+          },
+          "failure_response": {
+            "message": "I couldn't understand your response.",
+            "variations": [
+              "Please confirm again.",
+              "Sorry, I didn't get that. Try again."
+            ]
+          },
+          "closing_prompt": {
+            "message": "Thank you, your request has been logged.",
+            "ssml_message": "<speak>Thank you. Your request has been logged.</speak>",
+            "variations": [
+              "Thanks for submitting your claim.",
+              "Your claim has been successfully recorded."
+            ]
+          },
           "slots": {
-            "PolicyNumber": { "description": "Insurance policy number", "slot_type": "AMAZON.AlphaNumeric", "required": true, "prompt": "What is your policy number?", "max_retries": 2, "obfuscation": "DefaultObfuscation" },
-            "ClaimType": { "description": "Type of claim", "slot_type": "ClaimType", "required": true, "prompt": "What type of claim is this?", "max_retries": 2 },
-            "IncidentDate": { "description": "Date of incident", "slot_type": "AMAZON.Date", "required": true, "prompt": "When did the incident occur?", "max_retries": 2 }
+            "PolicyNumber": {
+              "description": "Insurance policy number",
+              "slot_type": "AMAZON.AlphaNumeric",
+              "required": true,
+              "prompt": "What is your policy number?",
+              "max_retries": 2,
+              "obfuscation": "DefaultObfuscation"
+            },
+            "ClaimType": {
+              "description": "Type of claim",
+              "slot_type": "ClaimType",
+              "required": true,
+              "prompt": "What type of claim is this?",
+              "max_retries": 2
+            },
+            "IncidentDate": {
+              "description": "Date of incident",
+              "slot_type": "AMAZON.Date",
+              "required": true,
+              "prompt": "When did the incident occur?",
+              "max_retries": 2
+            }
           }
         }
       }

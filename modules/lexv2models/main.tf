@@ -453,46 +453,142 @@ resource "aws_lexv2models_intent" "intents" {
 # Slots
 # ==============================================================================
 
+# resource "aws_lexv2models_slot" "slots" {
+#   for_each = {
+#     for slot in local.slots :
+#     "${slot.locale}-${slot.intent}-${slot.name}" => slot
+#   }
+
+#   bot_id      = aws_lexv2models_bot.this.id
+#   bot_version = "DRAFT"
+#   locale_id   = each.value.locale
+#   intent_id   = aws_lexv2models_intent.intents["${each.value.locale}-${each.value.intent}"].intent_id
+#   name        = each.value.name
+#   description = each.value.description
+
+#   slot_type_id = (
+#     startswith(each.value.slot_type, "AMAZON.")
+#     ? each.value.slot_type
+#     : aws_lexv2models_slot_type.slot_types["${each.value.locale}-${each.value.slot_type}"].slot_type_id
+#   )
+
+#   value_elicitation_setting {
+#     slot_constraint = each.value.required ? "Required" : "Optional"
+
+#     prompt_specification {
+#       max_retries                = 2
+#       allow_interrupt            = true
+#       message_selection_strategy = "Random"
+
+#       message_group {
+#         message {
+#           plain_text_message {
+#             value = each.value.prompt
+#           }
+#         }
+#       }
+
+#       dynamic "prompt_attempts_specification" {
+#         for_each = ["Initial", "Retry1", "Retry2"]
+#         content {
+#           map_block_key   = prompt_attempts_specification.value
+#           allow_interrupt = true
+
+#           allowed_input_types {
+#             allow_audio_input = true
+#             allow_dtmf_input  = true
+#           }
+
+#           audio_and_dtmf_input_specification {
+#             start_timeout_ms = 4000
+
+#             audio_specification {
+#               max_length_ms  = 15000
+#               end_timeout_ms = 640
+#             }
+
+#             dtmf_specification {
+#               max_length         = 513
+#               end_timeout_ms     = 5000
+#               deletion_character = "*"
+#               end_character      = "#"
+#             }
+#           }
+
+#           text_input_specification {
+#             start_timeout_ms = 30000
+#           }
+#         }
+#       }
+#     }
+#   }
+
+#   lifecycle {
+#     ignore_changes = [
+#       value_elicitation_setting[0].prompt_specification[0].prompt_attempts_specification,
+#       value_elicitation_setting[0].prompt_specification[0].allow_interrupt,
+#       value_elicitation_setting[0].prompt_specification[0].message_selection_strategy,
+#     ]
+#   }
+
+#   depends_on = [
+#     aws_lexv2models_intent.intents,
+#     aws_lexv2models_slot_type.slot_types,
+#   ]
+# }
+
 resource "aws_lexv2models_slot" "slots" {
   for_each = {
     for slot in local.slots :
     "${slot.locale}-${slot.intent}-${slot.name}" => slot
   }
-
   bot_id      = aws_lexv2models_bot.this.id
   bot_version = "DRAFT"
-  locale_id   = each.value.locale
-  intent_id   = aws_lexv2models_intent.intents["${each.value.locale}-${each.value.intent}"].intent_id
+  intent_id   = aws_lexv2models_intent.intents[each.value.intent_key].intent_id
+  locale_id   = each.value.locale_id
   name        = each.value.name
-  description = each.value.description
+  description = each.value.description != "" ? each.value.description : null
 
-  slot_type_id = (
-    startswith(each.value.slot_type, "AMAZON.")
-    ? each.value.slot_type
-    : aws_lexv2models_slot_type.slot_types["${each.value.locale}-${each.value.slot_type}"].slot_type_id
-  )
+  slot_type_id = each.value.slot_type_id != null ? (
+    startswith(each.value.slot_type_id, "AMAZON.") ?
+    each.value.slot_type_id :
+    aws_lexv2models_slot_type.slot_types["${each.value.locale_id}-${each.value.slot_type_id}"].slot_type_id
+  ) : null
 
   value_elicitation_setting {
-    slot_constraint = each.value.required ? "Required" : "Optional"
+    slot_constraint = lookup(each.value.config, "required", false) ? "Required" : "Optional"
 
     prompt_specification {
-      max_retries                = 2
-      allow_interrupt            = true
-      message_selection_strategy = "Random"
+      max_retries                = lookup(each.value.config, "max_retries", 2)
+      allow_interrupt            = lookup(each.value.config, "allow_interrupt", true)
+      message_selection_strategy = lookup(each.value.config, "message_selection_strategy", "Random")
 
       message_group {
         message {
           plain_text_message {
-            value = each.value.prompt
+            value = lookup(each.value.config, "prompt", "Please provide ${each.value.name}")
+          }
+        }
+
+        # Prompt variations
+        dynamic "variation" {
+          for_each = lookup(each.value.config, "prompt_variations", [])
+
+          content {
+            plain_text_message {
+              value = variation.value
+            }
           }
         }
       }
 
+      # Prompt attempt specifications
       dynamic "prompt_attempts_specification" {
         for_each = ["Initial", "Retry1", "Retry2"]
+
         content {
+          allow_interrupt = lookup(each.value.config, "allow_interrupt", true)
           map_block_key   = prompt_attempts_specification.value
-          allow_interrupt = true
 
           allowed_input_types {
             allow_audio_input = true
@@ -523,17 +619,20 @@ resource "aws_lexv2models_slot" "slots" {
     }
   }
 
-  lifecycle {
-    ignore_changes = [
-      value_elicitation_setting[0].prompt_specification[0].prompt_attempts_specification,
-      value_elicitation_setting[0].prompt_specification[0].allow_interrupt,
-      value_elicitation_setting[0].prompt_specification[0].message_selection_strategy,
-    ]
+  # Obfuscation setting for PII/sensitive data
+  # Supported values: "None" or "DefaultObfuscation"
+  dynamic "obfuscation_setting" {
+    for_each = lookup(each.value.config, "obfuscation", null) != null ? [each.value.config.obfuscation] : []
+
+    content {
+      obfuscation_setting_type = obfuscation_setting.value
+    }
   }
 
   depends_on = [
-    aws_lexv2models_intent.intents,
+    aws_lexv2models_bot_locale.locales,
     aws_lexv2models_slot_type.slot_types,
+    aws_lexv2models_intent.intents
   ]
 }
 
@@ -652,24 +751,139 @@ resource "aws_lexv2models_bot_version" "this" {
 # This makes the bot ready for testing without manual intervention.
 # ==============================================================================
 
+# resource "null_resource" "build_bot_locales" {
+#   for_each = var.auto_build_bot_locales ? local.locales : {}
+#   //for_each = tomap(var.auto_build_bot_locales ? local.locales : {})
+#   triggers = {
+#     bot_id    = aws_lexv2models_bot.this.id
+#     locale_id = each.key
+#     # Rebuild when intents or slots change
+#     intents_hash = md5(jsonencode([
+#       for intent in local.intents : intent
+#       if intent.locale == each.key
+#     ]))
+#     slots_hash = md5(jsonencode([
+#       for slot in local.slots : slot
+#       if slot.locale == each.key
+#     ]))
+#     slot_types_hash = md5(jsonencode([
+#       for st in local.slot_types : st
+#       if st.locale == each.key
+#     ]))
+#   }
+
+#   provisioner "local-exec" {
+#     interpreter = ["bash", "-c"]
+#     command     = <<-BASH
+#       set -euo pipefail
+
+#       BOT_ID="${aws_lexv2models_bot.this.id}"
+#       LOCALE_ID="${each.key}"
+#       REGION="${data.aws_region.current.id}"
+#       WAIT_FOR_COMPLETION="${var.wait_for_build_completion}"
+#       TIMEOUT="${var.build_timeout_seconds}"
+
+#       echo "Building bot locale: $LOCALE_ID for bot: $BOT_ID"
+
+#       # Trigger the build
+#       aws lexv2-models build-bot-locale \
+#         --region "$REGION" \
+#         --bot-id "$BOT_ID" \
+#         --bot-version DRAFT \
+#         --locale-id "$LOCALE_ID" \
+#         --output json
+
+#       echo "✓ Build triggered for locale: $LOCALE_ID"
+
+#       # Wait for build to complete if requested
+#       if [ "$WAIT_FOR_COMPLETION" = "true" ]; then
+#         echo "Waiting for build to complete (timeout: $${TIMEOUT}s)..."
+
+#         ELAPSED=0
+#         SLEEP_INTERVAL=5
+
+#         while [ $ELAPSED -lt $TIMEOUT ]; do
+#           # Check build status
+#           STATUS=$(aws lexv2-models describe-bot-locale \
+#             --region "$REGION" \
+#             --bot-id "$BOT_ID" \
+#             --bot-version DRAFT \
+#             --locale-id "$LOCALE_ID" \
+#             --query 'botLocaleStatus' \
+#             --output text)
+
+#           echo "  Status: $STATUS ($${ELAPSED}s elapsed)"
+
+#           # Check if build completed successfully
+#           if [ "$STATUS" = "Built" ] || [ "$STATUS" = "ReadyExpressTesting" ]; then
+#             echo "✓ Build completed successfully for locale: $LOCALE_ID"
+#             exit 0
+#           fi
+
+#           # Check if build failed
+#           if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Deleting" ]; then
+#             echo "✗ Build failed for locale: $LOCALE_ID with status: $STATUS"
+
+#             # Try to get failure reasons
+#             FAILURES=$(aws lexv2-models describe-bot-locale \
+#               --region "$REGION" \
+#               --bot-id "$BOT_ID" \
+#               --bot-version DRAFT \
+#               --locale-id "$LOCALE_ID" \
+#               --query 'failureReasons' \
+#               --output text 2>/dev/null || echo "Unknown")
+
+#             echo "Failure reasons: $FAILURES"
+#             exit 1
+#           fi
+
+#           # Wait before next check
+#           sleep $SLEEP_INTERVAL
+#           ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+#         done
+
+#         echo "⚠ Build timeout reached for locale: $LOCALE_ID after $${TIMEOUT}s"
+#         echo "  Build may still be in progress. Check AWS Console for status."
+#         exit 0
+#       else
+#         echo "Build triggered but not waiting for completion (wait_for_build_completion = false)"
+#       fi
+#     BASH
+#   }
+
+#   # Ensure all resources are created before building
+#   depends_on = [
+#     aws_lexv2models_bot_locale.locales,
+#     aws_lexv2models_intent.intents,
+#     aws_lexv2models_slot.slots,
+#     aws_lexv2models_slot_type.slot_types,
+#     null_resource.slot_priorities
+#   ]
+# }
+
+# ==============================================================================
+# Build Bot Locales
+# ==============================================================================
+
 resource "null_resource" "build_bot_locales" {
-  for_each = var.auto_build_bot_locales ? local.locales : {}
+  # Use tomap({}) to ensure type consistency
+  for_each = var.auto_build_bot_locales ? local.locales : tomap({})
 
   triggers = {
     bot_id    = aws_lexv2models_bot.this.id
     locale_id = each.key
     # Rebuild when intents or slots change
     intents_hash = md5(jsonencode([
-      for intent in local.intents : intent
-      if intent.locale == each.key
+      for intent in local.intents :
+      intent if intent.locale_id == each.key
     ]))
     slots_hash = md5(jsonencode([
-      for slot in local.slots : slot
-      if slot.locale == each.key
+      for slot in local.slots :
+      slot if slot.locale_id == each.key
     ]))
     slot_types_hash = md5(jsonencode([
-      for st in local.slot_types : st
-      if st.locale == each.key
+      for st in local.slot_types :
+      st if st.locale_id == each.key
     ]))
   }
 

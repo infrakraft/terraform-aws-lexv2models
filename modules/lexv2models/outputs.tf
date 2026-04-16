@@ -70,12 +70,12 @@ output "slot_types" {
 # ==============================================================================
 
 output "bot_version" {
-  description = "The version number of the bot (e.g., '1', '2', '3'). Returns null if no version was created."
+  description = "The bot version number (if created)"
   value       = var.create_bot_version ? aws_lexv2models_bot_version.this[0].bot_version : null
 }
 
 output "bot_version_id" {
-  description = "The full bot version identifier. Returns null if no version was created."
+  description = "The bot version ID (if created)"
   value       = var.create_bot_version ? aws_lexv2models_bot_version.this[0].id : null
 }
 

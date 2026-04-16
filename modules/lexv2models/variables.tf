@@ -90,9 +90,16 @@ variable "tags" {
 
 variable "create_bot_version" {
   description = <<-EOT
-    Whether to create a numbered bot version from the DRAFT.
-    Set to true after testing your bot in DRAFT and you want to create
-    an immutable production snapshot.
+    Whether to create a numbered bot version.
+    
+    Bot versions are immutable snapshots useful for:
+    - Production deployments
+    - Rollback capability
+    - A/B testing
+    - Audit trails
+    
+    Note: Aliases are not yet supported by Terraform AWS provider.
+    Use version numbers directly for deployment references.
   EOT
   type        = bool
   default     = false
@@ -101,24 +108,36 @@ variable "create_bot_version" {
 variable "bot_version_description" {
   description = <<-EOT
     Description for the bot version.
-    Only used when create_bot_version is true.
     
-    Example: "Production release v1.0 - Added booking and payment flows"
+    Best practices:
+    - Include version number: "v1.0.0"
+    - Include date: "2024-04-11"
+    - Include change summary: "Added claim filing intent"
+    
+    Example: "v1.2.0 - 2024-04-11 - Added multi-language support"
   EOT
   type        = string
-  default     = ""
+  default     = "Automated version created by Terraform"
 }
 
 variable "bot_version_locale_specification" {
   description = <<-EOT
-    Optional map of locale_id to source bot version for that locale.
-    If not specified, all locales use DRAFT.
+    Map of locale-specific version sources.
+    
+    Each key is a locale_id (e.g., "en_US", "en_GB").
+    Each value is the source bot version for that locale.
+    
+    Use "DRAFT" to version the current draft locale state.
+    Use a version number to version from a specific version.
     
     Example:
     {
-      "en_GB" = "1"
-      "es_US" = "1"
+      "en_US" = "DRAFT"
+      "en_GB" = "DRAFT"
+      "es_ES" = "1"  # Use version 1 as source
     }
+    
+    Default: All locales use "DRAFT"
   EOT
   type        = map(string)
   default     = {}

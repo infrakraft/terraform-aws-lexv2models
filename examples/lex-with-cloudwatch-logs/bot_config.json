@@ -1,7 +1,8 @@
 {
   "name": "BookingBot",
   "description": "A simple hotel room booking bot",
-  "idle_session_ttl": 400,
+  "type": "Bot",
+  "idle_session_ttl": 300,
   "child_directed": false,
   "locales": {
     "en_US": {
@@ -13,7 +14,7 @@
       "slot_types": {
         "RoomType": {
           "description": "Available room categories",
-          "value_selection_strategy": "RestrictToSlotValues",
+          "value_selection_strategy": "TopResolution",
           "values": [
             {
               "value": "single",
@@ -49,7 +50,7 @@
             "Make a reservation"
           ],
           "confirmation_prompt": {
-            "message": "Just to confirm \u2014 you want a {RoomType} room checking in on {CheckInDate} for {Nights} nights. Is that right?",
+            "message": "Just to confirm — you want a {RoomType} room checking in on {CheckInDate} for {Nights} nights. Is that right?",
             "max_retries": 2,
             "message_selection_strategy": "Ordered"
           },
@@ -64,16 +65,19 @@
           },
           "slots": {
             "RoomType": {
+              "description": "Type of room to book",
               "slot_type": "RoomType",
               "required": true,
-              "prompt": "What type of room would you like \u2014 single, double, or suite?"
+              "prompt": "What type of room would you like — single, double, or suite?"
             },
             "CheckInDate": {
+              "description": "Check-in date",
               "slot_type": "AMAZON.Date",
               "required": true,
               "prompt": "What date would you like to check in?"
             },
             "Nights": {
+              "description": "Number of nights to stay",
               "slot_type": "AMAZON.Number",
               "required": true,
               "prompt": "How many nights will you be staying?"
@@ -99,6 +103,7 @@
           },
           "slots": {
             "BookingRef": {
+              "description": "Booking reference number",
               "slot_type": "AMAZON.AlphaNumeric",
               "required": true,
               "prompt": "Please provide your booking reference number."
